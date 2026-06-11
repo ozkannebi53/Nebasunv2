@@ -37,10 +37,20 @@
 - [x] Kelime doğrulama — isValidWord() fonksiyonu
 - [x] Kelime anlamları — getWordMeaning() sözlüğü
 
+## Kelime Havuzu & Lima AI Güncellemeleri (v4.0)
+- [x] Kelime havuzu — 3/4/5/6 harfli Türkçe kelimeler (kullanıcı sağladı)
+- [x] Rastgele kelime seçimi — her kullanıcıya farklı kombinasyon
+- [x] Karışık dağıtım — generateRandomWordSet() fonksiyonu
+- [x] Lima AI — tamamen sohbet odaklı (300+ satır konuşma)
+- [x] Bağlamsal yanıtlar — konuşma akışı, doğal dil
+- [x] Sohbet kategorileri — kelime, strateji, kültür, motivasyon, eğlence vb.
+
 ## Gelecek Geliştirmeler
+- [ ] Şehir arka planları — doğa manzarası görselleri
+- [ ] Ses efektleri — kelime bulma, kombo, hata (expo-audio)
+- [ ] Animasyonlar — harfler seçilirken scale/opacity
 - [ ] Mağaza ekranı (shop.tsx) — altın/elmas ile ürün satın alma
 - [ ] Bildirimler — enerji doldu, lonca görevi
-- [ ] Ses efektleri — kelime bulma, kombo, hata
-- [ ] Çevrimiçi PvP — gerçek zamanlı düello
+- [ ] Çevrimiçi PvP — gerçek zamanlı düello (WebSocket/Firebase)
 - [ ] Lonca sohbet — üyeler arası mesajlaşma
 - [ ] Sezon sistemi — sezon sonu ödülleri

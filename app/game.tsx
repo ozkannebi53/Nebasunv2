@@ -134,11 +134,9 @@ export default function GameScreen() {
 
   // Kelime seç (5, 7, 9 harfli rastgele)
   const wordLength = useMemo(() => {
-    const rand = Math.random();
-    if (rand < 0.5) return 5;
-    if (rand < 0.8) return 7;
-    return 9;
-  }, []) as 5 | 7 | 9;
+    const lengths = [3, 4, 5, 6] as const;
+    return lengths[Math.floor(Math.random() * lengths.length)];
+  }, []) as 3 | 4 | 5 | 6;
 
   const targetWord = useMemo(() => getRandomWord(wordLength), [wordLength]);
   const shuffledLetters = useMemo(() => shuffleWord(targetWord), [targetWord]);
