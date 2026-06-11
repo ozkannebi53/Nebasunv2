@@ -45,6 +45,15 @@
 - [x] Bağlamsal yanıtlar — konuşma akışı, doğal dil
 - [x] Sohbet kategorileri — kelime, strateji, kültür, motivasyon, eğlence vb.
 
+## Oyun Ekranı Yeniden Tasarlanı (v5.0)
+- [x] Referans fotoğrafları analiz et
+- [x] Bölüm sistemi oluştur (110+ bölüm, 5 şehir)
+- [x] Harf sürükleme sistemi
+- [x] Şrit çember (çizgi animasyonu)
+- [x] Hedef/ipucu kaldır
+- [x] Cümle sistemi kaldır
+- [x] Sadece oyun bırak
+
 ## Gelecek Geliştirmeler
 - [ ] Şehir arka planları — doğa manzarası görselleri
 - [ ] Ses efektleri — kelime bulma, kombo, hata (expo-audio)
