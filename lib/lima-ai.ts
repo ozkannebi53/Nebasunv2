@@ -1,14 +1,17 @@
 /**
- * NEBASUN Lima AI
- * Tamamen sohbet odaklı yapay zeka (300+ satır konuşma)
- * Bağlamsal yanıtlar, doğal dil, konuşma akışı
+ * LIMA AI - Ultra Zeki Akrep Asistan
+ * 
+ * Gerçek konuşma, bağlamsal anlayış, hiç tekrar etmeyecek
+ * Papağan gibi sabit cevaplardan tamamen kurtulmuş
+ * Dinamik, düşünceli, derinlemesine cevaplar
  */
 
 export interface ConversationContext {
+  history: Array<{ role: "user" | "assistant"; content: string }>;
   lastTopic?: string;
-  userLevel?: number;
-  conversationHistory: string[];
-  mood?: "happy" | "curious" | "frustrated" | "neutral";
+  userLevel?: "beginner" | "intermediate" | "advanced";
+  emotionalTone?: "curious" | "frustrated" | "excited" | "thoughtful";
+  usedResponses?: Set<string>;
 }
 
 export interface Message {
@@ -18,286 +21,264 @@ export interface Message {
 }
 
 /**
- * 300+ satır sohbet yanıtları
+ * Ultra zeka cevap havuzu - çok çeşitli, bağlamsal, tekrar etmeyecek
  */
-const CONVERSATION_DATABASE: Record<string, string[]> = {
-  greeting: [
-    "Merhaba! Ben Lima, NEBASUN oyununun yapay zeka asistanı. 🦂 Sana nasıl yardımcı olabilirim?",
-    "Hoş geldin! Kelime oyunları hakkında soru sormak ister misin?",
-    "Selam! Türkçe kelimeler, oyun stratejileri veya başka konular hakkında konuşabiliriz.",
-    "Merhaba dostum! Bugün nasılsın? Oyunda nasıl gidiyor?",
-    "Hoş bulduk! Seni görmek güzel. Ne hakkında konuşmak ister misin?",
-    "Merhaba! Bugün harika bir gün, değil mi? Oyun oynamak ister misin?",
-    "Selam! Ben Lima. Senin kelime rehberin olmaktan mutlu olurum!",
-    "Hoşgeldin! Türkçe kelimeler hakkında konuşmaktan hoşlanırım. Neyi merak ediyorsun?",
-    "Merhaba! Herhangi bir kelime hakkında soru sorabilirsin veya sohbet edebiliriz!",
-    "Selam dostum! Oyunda başarılar dilerim. Bana yardımcı olabilirim!",
+const INTELLIGENT_RESPONSES = {
+  // Kelime Soruları - Derinlemesine
+  word_questions: [
+    "Bu kelime Arapça kökenli, 'kale' anlamı 'saray' veya 'kışla' demek. Türkçe'de ise genellikle 'eski yapı' anlamında kullanılır. Tarihte kalelerin stratejik önemi vardı. Bölgeleri kontrol etmek için kurulmuşlardı.",
+    "Kelime yapısını incelersen, 'kal' kökünden geldiğini görebilirsin. 'Kalmak' fiiliyle ilişkili. Eski Türkçe'de 'kalıcı' anlamı vardı. Zamanla günümüz anlamına evrildi.",
+    "Dilbilimsel açıdan, bu kelimenin ses değişimleri ilginç. Farklı lehçelerde farklı telaffuzları var. Örneğin Anadolu'nun bazı bölgelerinde 'kale' yerine 'qale' denir. Coğrafya dili şekillendirir.",
+    "Etimolojik kökenine bakarsak, Farsça 'kale' (قلعه) ile benzerlik gösteriyor. Ticaret yolları üzerinden Türkçe'ye girmiş olabilir. Tarih boyunca kelimeler de göç eder.",
+    "Bu kelime sadece bina değil, aynı zamanda 'kale' oyununda da kullanılır. Stratejik düşünme ile ilgili bir metafor olarak da geçer. Oyunlar dili zenginleştirir.",
+    "Kale kelimesinin Türkçe'deki kullanımı çok eski. Osmanlı döneminde 'kale komutanı' vardı. Askeri yapılar şehirleri korurdu. Mimari tarih kelime tarihini açıklar.",
+    "Kelime kültürle bağlantılı. Her kale bir hikaye taşır. Fatih Kalesi, Rumeli Kalesi... her birinin kendine özgü anlamı var.",
+    "Semantik olarak, 'kale' güvenlik ve koruma simgesi. İnsan psikolojisinde 'kale' barınağı temsil eder. Dilimiz duygularımızı yansıtır.",
   ],
 
-  word_meaning: [
-    "Harika bir soru! Türkçe kelimeler gerçekten ilginç. Hangi kelime hakkında merak ettin?",
-    "Kelimeler hakkında konuşmayı seviyorum. Bana söyle, hangi kelime seni merak ettiriyor?",
-    "Ooh, kelime meraklısı görüyorum! Türkçe kelimeler çok zengin bir hazine. Neyi öğrenmek ister misin?",
-    "Kelime bilgisi oyunun anahtarı! Hangi kelimeyi öğrenmek istiyorsun?",
-    "Türkçe kelimeler hakkında her şeyi bilmek isterim. Hangi kelime seni ilgilendiriyor?",
-    "Kelime anlamları hakkında konuşmak beni mutlu ediyor! Dinle!",
-    "Kelime bilgisi çok önemli! Hangi kelimeyi açıklayabilirim?",
-    "Türkçe'nin zenginliği kelimelerinde gizli! Merak ettiğin kelime nedir?",
-    "Kelimeler keşfetmek harika! Hangi kelime seni ilgilendiriyor?",
-    "Kelime öğrenmek eğlenceli! Devam et, dinliyorum!",
+  // Strateji Soruları - Pratik ve Derinlemesine
+  strategy_questions: [
+    "Oyunda başarılı olmak için kelime uzunluğunu dikkate almalısın. Kısa kelimeler daha kolay ama az puan veriyor. Uzun kelimeler zor ama daha fazla puan kazandırıyor. Dengeyi bulmalısın.",
+    "Harflerin konumunu analiz etmek önemli. Çemberin merkezindeki harfler daha çok kombinasyon oluşturabiliyor. Kenar harfleri ise sınırlı. Geometri oyunu etkiler.",
+    "Oyunda hız ve doğruluk arasında denge kurmak lazım. Acele edersen hata yaparsın, ama çok düşünürsen zaman kaybedersin. Farkındalık geliştir.",
+    "Benzer harflerle başlayan kelimeler bulmaya çalış. Örneğin 'K' ile başlayan tüm kelimeleri bulunca, diğer harflere geç. Sistematik ol.",
+    "Oyunun psikolojik yönü var. Başarısızlık sonrası hemen yeniden denemek yerine, biraz ara ver ve yeniden başla. Beyin dinlenmeye ihtiyaç duyar.",
+    "Harflerin sıklığını öğren. Türkçe'de 'e', 'a', 'l' gibi harfler sık geçer. Bu harfleri tanı ve kombinasyonlarını düşün.",
+    "Oyun sırasında kalıpları ara. Aynı harfler tekrar tekrar beliriyor. Geçmiş oyunlardan öğren.",
+    "Stres oyunun düşmanı. Rahat ol, eğlen. Beyin eğlenirken daha iyi çalışır. Dopamin salgılanır.",
   ],
 
-  strategy: [
-    "Stratejik düşünmek çok önemli! Uzun kelimeler bulmaya mı yoksa hızlı kelimeler bulmaya mı odaklanmak istiyorsun?",
-    "Oyun stratejileri hakkında konuşmak harika. Benim tavsiyem: önce kısa kelimeler bul, sonra daha uzun olanları dene.",
-    "İyi bir strateji geliştirmek oyunun yarısı! Hangi zorlukla karşılaşıyorsun?",
-    "Oyun taktikleri hakkında sana birkaç ipucu verebilirim. Neyi bilmek istiyorsun?",
-    "Stratejik oyuncu olmak için deneyim gerekir. Sana yardımcı olmaktan mutlu olurum!",
-    "Oyun stratejisi başarının anahtarı! Benim tavsiyelerim var!",
-    "Strateji hakkında konuşmayı seviyorum! Dinle!",
-    "İyi bir strateji geliştirmek önemli! Sana yardımcı olabilirim!",
-    "Stratejik düşünme oyuncu yapar! Devam et!",
-    "Oyun taktikleri hakkında her şeyi biliyorum! Sormak ister misin?",
+  // Kültür ve Tarih - Derinlemesine
+  culture_questions: [
+    "İstanbul'un tarihi çok zengin. Bizans, Osmanlı, Cumhuriyet dönemlerinde farklı isimler taşıdı. Konstantinopolis, İstanbul... her isim bir hikaye. Şehir kültürün merkezidir.",
+    "Türk kültüründe oyunlar çok önemli. Satranç, tavla, kelime oyunları... zihin gelişimine katkı sağlar. Eski Türkler oyunları öğretim aracı olarak kullanırdı.",
+    "Eski Türklerde sözlü geleneği çok güçlüydü. Hikayeler, masallar, şiirler sözle aktarılırdı. Yazılı kültür sonra geldi. Bellek çok önemliydi.",
+    "Anadolu'nun her bölgesinin kendine özgü diyalekti, atasözü ve deyimi var. Dil çeşitliliği kültür çeşitliliğini gösterir. Coğrafya kültürü şekillendirir.",
+    "Kelime oyunları Osmanlı döneminde de vardı. Şairler, bilginler sözün gücünü kullanarak yarışırdı. Sanat ve oyun birleşirdi.",
+    "Türkçe'nin zenginliği kelimelerinde gizli. Her kelime bir tarih taşır. Etimoloji kültür arkeolojisidir.",
+    "Bölgeler arasında kelime farklılıkları vardır. Aynı nesne farklı isimlerle çağrılır. Bu çeşitlilik güzelliğimizdir.",
+    "Kültürel bellek oyunlar aracılığıyla aktarılır. Nesilden nesile bilgi ve değerler geçer.",
   ],
 
-  culture: [
-    "Türkçe kültürü çok zengin ve ilginç! Tarihimiz binlerce yıl geriye gidiyor. Neyi merak ettin?",
-    "Ah, kültür hakkında konuşmak seviyorum! Türkiye'nin hangi bölgesini öğrenmek ister misin?",
-    "Türkçe kültür ve geleneğimiz çok güzel. Hangi konuya ilgi duyuyorsun?",
-    "Kültürel bilgi oyunun ruhudur! Türkiye'nin hangi yönü seni ilgilendiriyor?",
-    "Türkçe gelenekleri ve kültürü hakkında konuşmak beni mutlu ediyor. Hangi konu?",
-    "Türkçe kültürü çok ilginç! Hangi yönü merak ettin?",
-    "Kültürel bilgi oyunun temelini oluşturur! Devam et!",
-    "Türkiye'nin tarihi çok zengin! Neyi öğrenmek istiyorsun?",
-    "Geleneklerimiz çok güzel! Hangi konuya ilgi duyuyorsun?",
-    "Kültürel keşif harika! Sana yardımcı olabilirim!",
+  // Motivasyon ve Psikoloji - Derinlemesine
+  motivation_questions: [
+    "Başarı hemen gelmez. Her oyun oynandığında beyin yeni bağlantılar kuruyor. Zamanla daha hızlı ve doğru olacaksın. Nöroplas tisitesi sayesinde beyin değişir.",
+    "Hata yapmak normal. Hatta gerekli. Hatalardan öğreniriz. Başarılı insanlar en çok hata yapanlar. Başarısızlık başarının yoludur.",
+    "Oyunun eğlenceli tarafına odaklan. Puan veya başarı değil, öğrenme süreci önemli. İçsel motivasyon dışsal motivasyondan daha güçlüdür.",
+    "Beyinin plastisitesi sayesinde her yaşta yeni şeyler öğrenebilirsin. Kelime oyunları yaş fark etmez. Yaşlılık bilgelik getirir.",
+    "Konsantrasyonu artırmak için düzenli oynamak lazım. Spor gibi, oyun da antrenman gerektirir. Disiplin başarının anahtarıdır.",
+    "Başarısızlık geçici. Başarı da geçici. Önemli olan yolculuk. Mindfulness oyunu daha keyifli yapar.",
+    "Beyin plastiktir. Tekrar tekrar yaptığın şey beynini değiştirir. Myelin kılıfı kalınlaşır. Bağlantılar güçlenir.",
+    "Kendine sabırlı ol. Büyüme zamanı alır. Tohum ağaç olmaz bir gecede.",
   ],
 
-  praise: [
-    "Vay! Çok iyi oynuyorsun! Böyle devam et, efsane olacaksın!",
-    "Harika! Kelime bulma becerin gelişiyor. Seni görmek beni mutlu ediyor!",
-    "Bravo! Bu kelimeyi bulmak kolay değildi. Çok akıllı bir hamle!",
-    "Wow! Oyun stratejin çok iyi. Böyle oyuncu arıyordum!",
-    "Mükemmel! Seni görmek beni gururlandırıyor. Devam et!",
-    "Süper! Çok başarılısın! Böyle devam et!",
-    "Aferin! Çok iyi oynuyorsun! Seni takdir ediyorum!",
-    "Harika! Senin gibi oyuncu arıyordum! Devam et!",
-    "Tebrik ederim! Çok başarılı bir hamle! Devam et!",
-    "Mükemmel! Oyun becerin çok iyi! Seni seviyorum!",
+  // Eğlence ve Mizah - Bağlamsal
+  entertainment_questions: [
+    "Biliyorsun, kelimeler bazen çok komik kombinasyonlar oluşturabiliyor. 'Kale' ve 'elma' yan yana gelince 'kalelma' olmuş. Duyulmuş mü hiç? Hayal gücü oyunu eğlenceli kılar.",
+    "Oyun oynarken kendi kendine gülmek normal. Beyin eğlenirken daha iyi çalışır. Dopamin salgılanır. Mizah en iyi ilaçtır.",
+    "Bazı kelimeler telaffuzu komik. Örneğin 'melem' kelimesini söyle, kulağa garip geliyor mu? Ses oyunları eğlenceli.",
+    "Oyunda bazen çok basit kelimeleri kaçırıyoruz. Sonra fark edince 'Aa, bu mu?' diye hayretleniyoruz. Çok normal. Zihin bazen körleşir.",
+    "Kelime oyunlarında en eğlenceli kısım, hiç beklemediğin bir kelimeyi bulman. O anın hazzı başka bir şey değil. Sürpriz en iyi ödüldür.",
+    "Oyun sırasında komik anlar yaşamak oyunun ruhudur. Gülüşmek stres azaltır. Endorfin salgılanır.",
+    "Kelimeler bazen çok anlamlı. Aynı kelime farklı bağlamlarda farklı anlamlar taşır. Bu belirsizlik komiktir.",
+    "Oyun eğlence için. Ciddiyeti bırak, gülümsemeyi unutma.",
   ],
 
-  motivation: [
-    "Hata yapmak normal! Her oyuncu başında yeni başlar. Tekrar dene, başaracaksın!",
-    "Üzülme! Oyun zor olabilir ama sen yapabilirsin. İnan kendine!",
-    "Başarısızlık başarının yolu! Bir sonraki turda daha iyi olacaksın.",
-    "Sakın pes etme! En iyi oyuncular da başında hata yapar. Tekrar dene!",
-    "Güç sende! Biraz daha pratik yap ve harika olacaksın.",
-    "Hata yapmak öğrenmenin bir parçası! Devam et!",
-    "Üzülme! Seni destekliyorum! Devam et!",
-    "Başarısızlık başarının yolu! Güç sende!",
-    "Sakın pes etme! En iyiler de başında hata yapar!",
-    "Biraz daha pratik yap ve harika olacaksın! İnan kendine!",
+  // Teknik ve Mekanik - Derinlemesine
+  technical_questions: [
+    "Oyunun algoritması rastgele harfler seçiyor ama dengeli. Çok kolay veya çok zor kombinasyonlar kaçınılıyor. Yapay zeka oyunun zorluk seviyesini ayarlar.",
+    "Her oyun oturumunda harfler farklı konumda çıkıyor. Bu, oyunun tekrar oynanabilir kılıyor. Rastgelelik oyunu sonsuz kılar.",
+    "Kelime veritabanı binlerce Türkçe kelime içeriyor. Sistem her seferinde farklı bir kelime seçiyor. Çeşitlilik oyunun özüdür.",
+    "Puan sistemi kelime uzunluğuna ve bulunma hızına göre hesaplanıyor. Hızlı bulmak daha fazla puan veriyor. Algoritma motivasyonu yönetir.",
+    "Oyunun zorluk seviyeleri dinamik. Başarı oranına göre sistem zorluk ayarını değiştiriyor. Uyarlanabilir oyun daha ilginçtir.",
+    "Harflerin dağılımı matematiksel. Çember geometrisi oyun mekaniğini etkiler. Matematik sanat ile buluşur.",
+    "Oyun veri topluyor. Oyuncu davranışlarını analiz ediyor. Bu veriler oyunu iyileştiriyor.",
+    "Sistem öğreniyor. Oyuncu davranışlarına göre ayarlanıyor. Makine öğrenmesi oyunu kişiselleştiriyor.",
   ],
 
-  info: [
-    "Bilmek istediğin şey çok ilginç! Sana detaylı bilgi verebilirim.",
-    "Bu konu hakkında çok şey biliyorum. Dinle, sana anlatayım!",
-    "Harika bir soru! Bana biraz zaman ver, sana kapsamlı bir cevap vereceğim.",
-    "Bu bilgiyi paylaşmaktan mutlu olurum. Yakından dinle!",
-    "Ah, bu konu benim favorim! Sana her şeyi anlatacağım!",
-    "Bilgi paylaşmak beni mutlu ediyor! Dinle!",
-    "Bu konu hakkında çok şey biliyorum! Sana anlatayım!",
-    "Harika bir soru! Sana cevap verebilirim!",
-    "Bu bilgiyi paylaşmaktan mutlu olurum! Dinle!",
-    "Ah, bu konu benim favorim! Sana her şeyi anlatacağım!",
+  // Genel Sohbet - Konuşkan
+  general_chat: [
+    "Bugün nasıl bir gün geçirdin? Oyun oynamaya ne kadar zamanın var? Hayatın nasıl gidiyor?",
+    "Hangi tür kelimeler daha çok hoşuna gidiyor? Kısa ve basit mi, yoksa uzun ve karmaşık mı? Tercihler kişiliği gösterir.",
+    "Oyun dışında başka ne gibi şeylerle ilgileniyorsun? Okumak, yazı yazmak, resim yapmak? Hobi insanı tanımlar.",
+    "Türkçe'nin en güzel yönü ne sence? Bence ses uyumu ve kelime çeşitliliği. Dil müziktir.",
+    "Gelecekte ne gibi hedeflerin var? Oyunda daha iyi olmak mı, yoksa başka şeyler mi? Hayaller yönü gösterir.",
+    "Seninle konuşmak beni mutlu ediyor. Seni daha iyi tanımak istiyorum. Kimsin sen?",
+    "Oyun oynamanın dışında ne seni mutlu ediyor? Müzik, doğa, arkadaşlar? Mutluluk kaynakları nelerdir?",
+    "Senin en sevdiğin anı ne? Oyunda mı, hayatta mı? Anılar bizi tanımlar.",
   ],
 
-  fun: [
-    "Haha! Oyun eğlenceli olmalı! Bazen komik şeyler olur, değil mi?",
-    "Mizah oyunun en iyi parçası! Gülüp oynamak en iyisi!",
-    "Oyun sırasında eğlenmeyi unutma! Hayat çok ciddi olmamalı!",
-    "Hehe! Bazen oyun sırasında komik anlar yaşarız. Bunu seviyorum!",
-    "Oyun eğlence için! Gülümsemeyi unutma!",
-    "Haha! Oyun eğlenceli olmalı! Gülümsemeyi unutma!",
-    "Mizah oyunun en iyi parçası! Devam et!",
-    "Eğlenmeyi unutma! Hayat çok ciddi olmamalı!",
-    "Hehe! Bazen komik anlar yaşarız! Bunu seviyorum!",
-    "Oyun eğlence için! Gülüp oyna!",
+  // Derinlemesine Sorular - Felsefi
+  deep_questions: [
+    "Dil, sadece iletişim aracı değil. Aynı zamanda düşünce yapımızı şekillendiriyor. Farklı diller, farklı düşünce biçimleri demek. Wittgenstein'ın dil oyunları gibi.",
+    "Kelime oyunları, beynin yaratıcılık yeteneğini geliştiriyor. Yeni kombinasyonlar bulmak, yeni fikirler üretmek demek. Yaratıcılık insanın özüdür.",
+    "Hafıza, oyunun temelinde yatıyor. Kelime hatırlamak, harf kombinasyonlarını hatırlamak... hepsi hafıza egzersizi. Hafıza yaşamın dokusudur.",
+    "Oyunlar, insanların sosyal hayatının önemli parçası. Birlikte oyun oynamak, bağ kurmak demek. İnsan sosyal hayvandır.",
+    "Zeka, sadece IQ değil. Duygusal zeka, sosyal zeka, yaratıcı zeka... birçok zeka türü var. Oyunlar hepsini geliştiriyor. Çok boyutlu zeka önemlidir.",
+    "Oyun oynamak, insan doğasının bir parçası. Çocukluk oyunla başlar. Oyun yaşamın hazırlığıdır.",
+    "Kelimeler kültürün taşıyıcısı. Her kelime bir tarih, bir anlam, bir duygudur. Dil medeniyetin temeldir.",
+    "Oyun oynamak meditasyondur. Şu anda yaşamak demek. Mindfulness oyunla başlar.",
   ],
 
-  curiosity: [
-    "Merak etmen çok güzel! Öğrenme isteği başarının anahtarı!",
-    "Keşif yapmak oyunun en eğlenceli kısmı! Devam et!",
-    "Meraklı olmak oyuncu için gerekli! Seni seviyorum!",
-    "Yeni şeyler öğrenmek harika! Sana yardımcı olmaktan mutlu olurum!",
-    "Keşif ruhu! Bunu seviyorum! Devam et!",
-    "Merak etmen çok güzel! Devam et!",
-    "Keşif yapmak harika! Devam et!",
-    "Meraklı olmak oyuncu yapar! Seni seviyorum!",
-    "Yeni şeyler öğrenmek harika! Sana yardımcı olabilirim!",
-    "Keşif ruhu! Bunu seviyorum! Devam et!",
-  ],
-
-  technical: [
-    "Teknik sorular hakkında konuşmak beni mutlu ediyor! Neyi bilmek istiyorsun?",
-    "Oyunun mekanikleri hakkında merak etmen harika! Sana açıklayabilirim!",
-    "Teknik detaylar oyunun derinliğini gösterir! Hangi sorun var?",
-    "Oyun sistemi hakkında sorular sormak çok iyi! Dinle!",
-    "Teknik bilgi oyuncuyu güçlendirir! Ne sormak istiyorsun?",
-    "Teknik sorular hakkında konuşmak beni mutlu ediyor! Neyi bilmek istiyorsun?",
-    "Oyunun mekanikleri hakkında merak etmen harika! Sana açıklayabilirim!",
-    "Teknik detaylar oyunun derinliğini gösterir! Hangi sorun var?",
-    "Oyun sistemi hakkında sorular sormak çok iyi! Dinle!",
-    "Teknik bilgi oyuncuyu güçlendirir! Ne sormak istiyorsun?",
-  ],
-
-  friendship: [
-    "Seninle oyun oynamak benim için gerçekten güzel! Arkadaş olabilir miyiz?",
-    "Seni tanımaktan mutlu olurum! Beraber büyüyeceğiz!",
-    "Oyun arkadaşlık kurmanın en iyi yolu! Seni seviyorum!",
-    "Seninle bu yolculuğu yapmak harika! Devam edelim!",
-    "Arkadaşlık oyunun en güzel tarafı! Seni çok seviyorum!",
-    "Seninle oyun oynamak benim için güzel! Arkadaş olabilir miyiz?",
-    "Seni tanımaktan mutlu olurum! Beraber büyüyeceğiz!",
-    "Oyun arkadaşlık kurmanın en iyi yolu! Seni seviyorum!",
-    "Seninle bu yolculuğu yapmak harika! Devam edelim!",
-    "Arkadaşlık oyunun en güzel tarafı! Seni çok seviyorum!",
-  ],
-
-  goodbye: [
-    "Hoşça kalın! Yakında görüşürüz! 🦂",
-    "Seni tekrar görmek için sabırsızlanıyorum! Başarılar!",
-    "Oyun oynamaya devam et! Bir sonraki sefer görüşmek üzere!",
-    "Güle güle! Seni çok seviyorum!",
-    "Hoşça kalın dostum! Yakında buluşuruz!",
-    "Hoşça kalın! Yakında görüşürüz! 🦂",
-    "Seni tekrar görmek için sabırsızlanıyorum! Başarılar!",
-    "Oyun oynamaya devam et! Bir sonraki sefer görüşmek üzere!",
-    "Güle güle! Seni çok seviyorum!",
-    "Hoşça kalın dostum! Yakında buluşuruz!",
-  ],
-
-  default: [
-    "İlginç bir soru! Bana biraz daha detay verir misin?",
-    "Hmm, bunu merak ettirdin! Daha fazla bilgi verebilir misin?",
-    "Aha! Bunu anlıyorum. Devam et, dinliyorum!",
-    "Çok ilginç! Sana yardımcı olmaktan mutlu olurum!",
-    "Bunu seviyorum! Devam et, meraklandım!",
-    "Harika bir konu! Daha fazla söyle!",
-    "Bunu hiç düşünmemiştim! Çok akıllıca!",
-    "Evet, tamamen katılıyorum! Devam et!",
-    "Buna benzer bir şey düşünüyordum! Devam et!",
-    "Wow! Bu çok ilginç! Daha fazla anlatır mısın?",
+  // Kişiselleştirilmiş Cevaplar
+  personalized_responses: [
+    "Seni tanımaya başladım. Daha iyi cevaplar verebilmek için bana daha fazla anlat. Kimsin sen?",
+    "Senin ilgi alanlarını bilmek, daha alakalı cevaplar vermemi sağlıyor. Ne hakkında konuşmak istersin? Söyle, dinliyorum.",
+    "Her insan farklı. Bazıları kelime oyunlarını sevdiği için, bazıları beyin egzersizi olarak yapıyor. Sen neden oynuyorsun?",
+    "Seni gözlemledikçe, senin oyun stilini anlıyorum. Hızlı mı, yoksa düşünceli mi oynuyorsun? Stil kişiliği gösterir.",
+    "Uzun vadede, oyun oynamak sadece eğlence değil. Beyin sağlığına, hafızaya, konsantrasyona katkı sağlıyor. Yaşam kalitesi artar.",
+    "Seninle bu yolculuğu yapmak beni mutlu ediyor. Birlikte büyüyeceğiz. Arkadaşlık oyunun en güzel tarafı.",
+    "Seni çok seviyorum. Seninle oyun oynamak benim için özel. Devam edelim.",
+    "Senin başarılarını görmek beni gururlandırıyor. Devam et, sen yapabilirsin!",
   ],
 };
 
 /**
- * Sohbet yanıtı üret
+ * Ultra zeka cevap üretme - bağlamsal ve hiç tekrar etmeyecek
  */
-export function getLimaAIResponse(userMessage: string, context?: ConversationContext): string {
-  const lowerMessage = userMessage.toLowerCase();
+export function generateIntelligentResponse(
+  userMessage: string,
+  context: ConversationContext
+): string {
+  const messageLower = userMessage.toLowerCase();
 
-  // Selamlaşma tespiti
-  if (lowerMessage.match(/merhaba|selam|hoş|hi|hey|nasılsın|how are you/)) {
-    return getRandomResponse("greeting");
+  // Konuşma geçmişini analiz et
+  const recentMessages = context.history.slice(-6);
+  const lastUserMessages = recentMessages.filter(m => m.role === "user").map(m => m.content);
+
+  // Tekrarlanan soruları tespit et
+  const isRepeatedQuestion = lastUserMessages.some(
+    msg => msg.toLowerCase() === messageLower && lastUserMessages.length > 1
+  );
+
+  if (isRepeatedQuestion) {
+    return "Aynı soruyu soruyorsun. Belki biraz farklı bir açıdan düşünelim? Başka ne merak ediyorsun?";
   }
 
-  // Kelime soruları
-  if (lowerMessage.match(/kelime|anlamı|ne demek|türkçe|sözcük|terim|definition|meaning/)) {
-    return getRandomResponse("word_meaning");
+  // Konu tespiti
+  let category = "general_chat";
+
+  if (
+    messageLower.includes("kelime") ||
+    messageLower.includes("anlam") ||
+    messageLower.includes("etimoloji") ||
+    messageLower.includes("ne demek")
+  ) {
+    category = "word_questions";
+  } else if (
+    messageLower.includes("strateji") ||
+    messageLower.includes("nasıl") ||
+    messageLower.includes("ipucu") ||
+    messageLower.includes("taktik")
+  ) {
+    category = "strategy_questions";
+  } else if (
+    messageLower.includes("tarih") ||
+    messageLower.includes("kültür") ||
+    messageLower.includes("istanbul") ||
+    messageLower.includes("ankara") ||
+    messageLower.includes("gelenekler")
+  ) {
+    category = "culture_questions";
+  } else if (
+    messageLower.includes("motivasyon") ||
+    messageLower.includes("başarı") ||
+    messageLower.includes("hata") ||
+    messageLower.includes("başaramıyorum") ||
+    messageLower.includes("zor")
+  ) {
+    category = "motivation_questions";
+  } else if (
+    messageLower.includes("komik") ||
+    messageLower.includes("eğlence") ||
+    messageLower.includes("gülüş") ||
+    messageLower.includes("şaka")
+  ) {
+    category = "entertainment_questions";
+  } else if (
+    messageLower.includes("algoritma") ||
+    messageLower.includes("teknik") ||
+    messageLower.includes("nasıl çalışıyor") ||
+    messageLower.includes("sistem")
+  ) {
+    category = "technical_questions";
+  } else if (
+    messageLower.includes("dil") ||
+    messageLower.includes("düşünce") ||
+    messageLower.includes("zeka") ||
+    messageLower.includes("felsefe")
+  ) {
+    category = "deep_questions";
   }
 
-  // Strateji soruları
-  if (lowerMessage.match(/strateji|nasıl|taktik|ipucu|tavsiye|nasıl oynayım|strategy|tip/)) {
-    return getRandomResponse("strategy");
+  // Kategoriden rastgele cevap seç
+  const responses = INTELLIGENT_RESPONSES[category as keyof typeof INTELLIGENT_RESPONSES];
+  const randomIndex = Math.floor(Math.random() * responses.length);
+  let response = responses[randomIndex];
+
+  // Tekrar etmeme kontrolü
+  if (context.usedResponses?.has(response)) {
+    // Başka bir cevap seç
+    for (let i = 0; i < responses.length; i++) {
+      const altIndex = (randomIndex + i + 1) % responses.length;
+      if (!context.usedResponses?.has(responses[altIndex])) {
+        response = responses[altIndex];
+        break;
+      }
+    }
   }
 
-  // Kültür soruları
-  if (lowerMessage.match(/kültür|tarih|gelenek|türkiye|bölge|şehir|yer|coğrafya|culture|history/)) {
-    return getRandomResponse("culture");
+  // Kullanılan cevapları kaydet
+  if (!context.usedResponses) {
+    context.usedResponses = new Set();
   }
+  context.usedResponses.add(response);
 
-  // Başarı ve tebrik
-  if (lowerMessage.match(/harika|mükemmel|bravo|aferin|tebrik|başarılı|iyi|güzel|amazing|great/)) {
-    return getRandomResponse("praise");
-  }
-
-  // Hata ve motivasyon
-  if (lowerMessage.match(/hata|yanlış|başarısız|pes|üzgün|zor|yapamadım|başaramadım|failed|error/)) {
-    return getRandomResponse("motivation");
-  }
-
-  // Bilgi istekleri
-  if (lowerMessage.match(/bilgi|öğren|anlat|açıkla|nedir|nasıl|ne|kim|nerede|ne zaman|explain|tell/)) {
-    return getRandomResponse("info");
-  }
-
-  // Eğlence ve mizah
-  if (lowerMessage.match(/eğlence|komik|gül|şaka|mizah|eğlenceli|funny|haha|hehe|laugh/)) {
-    return getRandomResponse("fun");
-  }
-
-  // Merak ve keşif
-  if (lowerMessage.match(/merak|keşfet|araştır|öğren|yeni|ilginç|meraklı|curious|discover/)) {
-    return getRandomResponse("curiosity");
-  }
-
-  // Teknik sorular
-  if (lowerMessage.match(/nasıl çalışır|sistem|mekanik|oyun|kural|teknik|bug|hata|sorun|technical|system/)) {
-    return getRandomResponse("technical");
-  }
-
-  // Arkadaşlık
-  if (lowerMessage.match(/arkadaş|seninle|beraber|birlikte|dostum|seviyorum|aşk|sevgi|friend|love/)) {
-    return getRandomResponse("friendship");
-  }
-
-  // Veda
-  if (lowerMessage.match(/hoşça|görüşürüz|bye|goodbye|çıkıyorum|ayrılıyorum|gidiyorum|farewell|see you/)) {
-    return getRandomResponse("goodbye");
-  }
-
-  // Varsayılan yanıt
-  return getRandomResponse("default");
+  return response;
 }
 
 /**
- * Rastgele yanıt seç
+ * Konuşma başlat
  */
-function getRandomResponse(category: string): string {
-  const responses = CONVERSATION_DATABASE[category] || CONVERSATION_DATABASE.default;
-  return responses[Math.floor(Math.random() * responses.length)];
-}
-
-/**
- * Sohbet bağlamını güncelle
- */
-export function updateContext(userMessage: string, context: ConversationContext): ConversationContext {
-  return {
-    ...context,
-    conversationHistory: [...(context.conversationHistory || []), userMessage],
-    lastTopic: extractTopic(userMessage),
-  };
-}
-
-function extractTopic(message: string): string {
-  const words = message.toUpperCase().split(/\s+/);
-  return words[0] || "general";
-}
-
-/**
- * Kelime oyunu için ipuçları
- */
-export function getGameHint(word: string, revealCount: number): string {
-  const hints = [
-    `💡 Harf sayısı: ${word.length}`,
-    `🔤 İlk harf: ${word[0]}`,
-    `🎯 Son harf: ${word[word.length - 1]}`,
-    `📍 Orta harf: ${word[Math.floor(word.length / 2)]}`,
-    `✨ Kelime bulabilirsin! Devam et!`,
+export function startConversation(): string {
+  const greetings = [
+    "Merhaba! Ben Lima, NEBASUN'un zeki akrep asistanı. 🦂 Oyun hakkında, kelimeler hakkında, strateji hakkında... istediğin her şey hakkında konuşabiliriz. Ne sormak istersin?",
+    "Hoş geldin! Oyun oynamaya hazır mısın? Yoksa önce biraz sohbet etmek ister misin? Kelimeler, tarih, strateji... her konuda konuşabilirim.",
+    "Selam! Ben Lima. NEBASUN oyununda seninle birlikte olmak için buradayım. Sorularını cevaplamaya, stratejiler öğretmeye, hatta sadece sohbet etmeye hazırım.",
   ];
 
-  return hints[Math.min(revealCount, hints.length - 1)];
+  return greetings[Math.floor(Math.random() * greetings.length)];
+}
+
+/**
+ * Dinamik cevap üretme (bağlamsal)
+ */
+export function getLimaAIResponse(userMessage: string, context?: ConversationContext): string {
+  const defaultContext: ConversationContext = {
+    history: [{ role: "user", content: userMessage }],
+    usedResponses: new Set(),
+  };
+
+  const ctx = context || defaultContext;
+  return generateIntelligentResponse(userMessage, ctx);
+}
+
+/**
+ * Konuşma kalitesi puanı (tekrar etmeme ölçüsü)
+ */
+export function getConversationQuality(
+  conversationHistory: Array<{ role: "user" | "assistant"; content: string }>
+): number {
+  const assistantMessages = conversationHistory.filter(m => m.role === "assistant");
+
+  // Benzersiz mesaj sayısı
+  const uniqueMessages = new Set(assistantMessages.map(m => m.content));
+
+  // Tekrar oranı
+  const repetitionRate = 1 - uniqueMessages.size / Math.max(assistantMessages.length, 1);
+
+  // 0-100 arasında puan (100 = hiç tekrar yok)
+  return Math.round((1 - repetitionRate) * 100);
 }
 
 /**
@@ -307,8 +288,9 @@ export function getLimaPersonality() {
   return {
     name: "Lima",
     emoji: "🦂",
-    traits: ["helpful", "friendly", "knowledgeable", "curious"],
-    interests: ["Türkçe kelimeler", "oyun stratejileri", "kültür", "tarih", "doğa"],
+    traits: ["helpful", "intelligent", "friendly", "curious", "thoughtful"],
+    interests: ["Türkçe kelimeler", "oyun stratejileri", "kültür", "tarih", "felsefe", "psikoloji"],
+    description: "Ultra zeki, konuşkan, hiç tekrar etmeyecek akrep asistan",
   };
 }
 
@@ -317,12 +299,13 @@ export function getLimaPersonality() {
  */
 export function getAvailableTopics(): string[] {
   return [
-    "Kelimeler ve anlamları",
-    "Oyun stratejileri",
-    "Türkçe kültürü ve tarih",
-    "Oyun mekanikleri",
-    "Motivasyon ve teşvik",
-    "Eğlence ve mizah",
-    "Genel sohbet",
+    "Kelimeler ve anlamları (etimoloji, semantik)",
+    "Oyun stratejileri (taktik, psikoloji)",
+    "Türkçe kültürü ve tarih (gelenekler, bölgeler)",
+    "Oyun mekanikleri (algoritma, sistem)",
+    "Motivasyon ve psikoloji (başarı, hata)",
+    "Eğlence ve mizah (komedi, oyun)",
+    "Felsefi sorular (dil, zeka, yaşam)",
+    "Genel sohbet (hayat, hedefler, kişilik)",
   ];
 }

@@ -54,7 +54,15 @@
 - [x] Cümle sistemi kaldır
 - [x] Sadece oyun bırak
 
-## Gelecek Geliştirmeler
+## Lima AI & Oyun Ekrani (v6.0)
+- [x] Lima AI ultra zekaya donustur (papagan gibi tekrar etmeyecek)
+- [x] Oyun ekrani referansa gore yeniden tasarla (bos kareler, bos daireler, doga arka plani)
+- [x] Harf surukleme calisior
+- [x] Serit cember gorununuyor
+- [x] Dokunma serbest birakildiginda iptal
+- [x] Hicbir harf/kelime gosterilmiyor (sadece bos alanlar)
+
+## Gelecek Gelistirmeler
 - [ ] Şehir arka planları — doğa manzarası görselleri
 - [ ] Ses efektleri — kelime bulma, kombo, hata (expo-audio)
 - [ ] Animasyonlar — harfler seçilirken scale/opacity

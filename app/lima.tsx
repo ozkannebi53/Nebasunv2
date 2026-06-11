@@ -6,7 +6,7 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { getLimaAIResponse, updateContext, type ConversationContext } from "@/lib/lima-ai";
+import { getLimaAIResponse, type ConversationContext } from "@/lib/lima-ai";
 import type { Message } from "@/lib/lima-ai";
 import * as Haptics from "expo-haptics";
 
@@ -19,7 +19,7 @@ export default function LimaScreen() {
   const [messages, setMessages] = useState<Message[]>([
     { id: "0", text: "Merhaba! Ben Lima, senin kelime rehberin. 🦂 Herhangi bir Türkçe kelime hakkında soru sorabilirsin veya sohbet edebiliriz!", from: "lima" },
   ]);
-  const [context, setContext] = useState<ConversationContext>({ conversationHistory: [] });
+  const [context, setContext] = useState<ConversationContext>({ history: [] });
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -34,7 +34,7 @@ export default function LimaScreen() {
       const response = getLimaAIResponse(text.trim(), context);
       const limaMsg: Message = { id: (Date.now() + 1).toString(), text: response, from: "lima" };
       setMessages(prev => [...prev, limaMsg]);
-      setContext(prev => updateContext(text.trim(), prev));
+      setContext(prev => ({ ...prev, history: [...(prev.history || []), { role: "user" as const, content: text.trim() }] }));
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     }, 600);
