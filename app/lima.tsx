@@ -6,22 +6,20 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { getLimaResponse } from "@/lib/word-engine";
+import { getLimaAIResponse, updateContext, type ConversationContext } from "@/lib/lima-ai";
+import type { Message } from "@/lib/lima-ai";
 import * as Haptics from "expo-haptics";
 
-interface Message {
-  id: string;
-  text: string;
-  from: "user" | "lima";
-}
 
-const QUICK_WORDS = ["KALE", "AKREP", "BAKLAVA", "BOĞAZ", "SULTAN", "GÜREŞ", "YILDIZ", "SABIR"];
+
+const QUICK_WORDS = ["KALE", "AKREP", "BAKLAVA", "BOĞAZ", "SULTAN", "GÜREŞ", "YILDIZ", "SABIR", "Anlamı nedir?", "Kökü nedir?"];
 
 export default function LimaScreen() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
-    { id: "0", text: "Merhaba! Ben Lima, senin kelime rehberinim. 🦂 Herhangi bir Türkçe kelime hakkında soru sorabilirsin!", from: "lima" },
+    { id: "0", text: "Merhaba! Ben Lima, senin kelime rehberin. 🦂 Herhangi bir Türkçe kelime hakkında soru sorabilirsin veya sohbet edebiliriz!", from: "lima" },
   ]);
+  const [context, setContext] = useState<ConversationContext>({ conversationHistory: [] });
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -33,9 +31,10 @@ export default function LimaScreen() {
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setTimeout(() => {
-      const response = getLimaResponse(text.trim());
+      const response = getLimaAIResponse(text.trim(), context);
       const limaMsg: Message = { id: (Date.now() + 1).toString(), text: response, from: "lima" };
       setMessages(prev => [...prev, limaMsg]);
+      setContext(prev => updateContext(text.trim(), prev));
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     }, 600);

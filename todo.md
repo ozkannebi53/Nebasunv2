@@ -20,11 +20,20 @@
 - [x] NEBASUN uygulama ikonu (altın kozmik akrep)
 - [x] app.config.ts güncelleme (appName, logoUrl)
 
+## Tasarım Güncellemeleri (v2.0)
+- [x] Oyun ekranı görünümü — crossword grid + harf çemberi yeniden tasarla
+- [x] Harf çemberi — bağlantı çizgileri, seçili harfler animasyonu
+- [x] Crossword grid — boş/dolu kutular, kelime anlamları
+- [ ] Şehir arka planları — doğa manzarası görselleri
+- [x] Lima AI — gerçek sohbet sistemi (sabit cevaplardan kurtul)
+- [x] PvP kod sistemi — 1v1 (2 cihaz), 2v2 (4 cihaz) kod doğrulama
+- [x] Giriş ekranı — animasyonlu splash screen
+- [x] Renk şeması — referanslara göre mavi/mor gradient
+
 ## Gelecek Geliştirmeler
 - [ ] Mağaza ekranı (shop.tsx) — altın/elmas ile ürün satın alma
 - [ ] Bildirimler — enerji doldu, lonca görevi
 - [ ] Ses efektleri — kelime bulma, kombo, hata
-- [ ] Animasyonlar — şehir kilit açma, başarım kazanma
 - [ ] Çevrimiçi PvP — gerçek zamanlı düello
 - [ ] Lonca sohbet — üyeler arası mesajlaşma
 - [ ] Sezon sistemi — sezon sonu ödülleri
