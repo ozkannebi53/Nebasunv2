@@ -30,6 +30,13 @@
 - [x] Giriş ekranı — animasyonlu splash screen
 - [x] Renk şeması — referanslara göre mavi/mor gradient
 
+## Oyun Mekaniği Güncellemeleri (v3.0)
+- [x] Türkçe kelime havuzu — 5/7/9 harfli sık kullanılan kelimeler
+- [x] Harf çemberi — harften harfe çizgi animasyonu
+- [x] Dokunma serbest bırakıldığında iptal — onaylama butonu yok
+- [x] Kelime doğrulama — isValidWord() fonksiyonu
+- [x] Kelime anlamları — getWordMeaning() sözlüğü
+
 ## Gelecek Geliştirmeler
 - [ ] Mağaza ekranı (shop.tsx) — altın/elmas ile ürün satın alma
 - [ ] Bildirimler — enerji doldu, lonca görevi
