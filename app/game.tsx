@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,155 +8,100 @@ import {
   ImageBackground,
   Platform,
   ScrollView,
+  Animated,
+  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import * as Haptics from "expo-haptics";
+import { generatePuzzle, checkWord, type Puzzle } from "@/lib/word-engine";
 
 const { width, height } = Dimensions.get("window");
+
+// Animasyonlu doğa arka planı referans URL
 const BACKGROUND_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
-
-// Her bölüm için 4 kelime ve 4 harf
-const LEVEL_DATA = {
-  1: {
-    words: ["KALE", "ELMA", "MELE", "ALEM"],
-    letters: ["K", "A", "L", "E", "M"],
-  },
-  2: {
-    words: ["MASA", "ASMA", "SAMA", "MASA"],
-    letters: ["M", "A", "S", "A"],
-  },
-  3: {
-    words: ["DERE", "ERDE", "REDE", "EDER"],
-    letters: ["D", "E", "R", "E"],
-  },
-  4: {
-    words: ["KEDI", "DIKE", "EDIK", "KIDE"],
-    letters: ["K", "E", "D", "I"],
-  },
-};
-
-interface GameState {
-  currentLevel: number;
-  foundWords: string[];
-  selectedIndices: number[];
-  score: number;
-  currentCity: string;
-  currentDistrict: string;
-}
 
 export default function GameScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const cityName = (params.city as string) || "İstanbul";
-  const districtName = (params.district as string) || "Fatih";
+  const cityId = (params.cityId as string) || "istanbul";
+  const initialLevel = parseInt((params.level as string) || "1");
 
-  const [gameState, setGameState] = useState<GameState>({
-    currentLevel: 1,
-    foundWords: [],
-    selectedIndices: [],
-    score: 0,
-    currentCity: cityName,
-    currentDistrict: districtName,
-  });
+  const [level, setLevel] = useState(initialLevel);
+  const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
+  const [foundWords, setFoundWords] = useState<string[]>([]);
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const [score, setScore] = useState(0);
+  
+  // Animasyonlar
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
-  const [showMeaning, setShowMeaning] = useState(false);
-  const [meaning, setMeaning] = useState("");
+  useEffect(() => {
+    // Yeni puzzle oluştur
+    const newPuzzle = generatePuzzle(cityId, level);
+    setPuzzle(newPuzzle);
+    setFoundWords([]);
+    setSelectedIndices([]);
+    
+    // Giriş animasyonu
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 8, useNativeDriver: true }),
+    ]).start();
+  }, [level, cityId]);
 
-  const currentLevelData = LEVEL_DATA[gameState.currentLevel as keyof typeof LEVEL_DATA] || LEVEL_DATA[1];
-  const letters = currentLevelData.letters;
-  const targetWords = currentLevelData.words;
+  if (!puzzle) return null;
 
-  // Harf seçimi
   const handleLetterPress = (index: number) => {
+    if (selectedIndices.includes(index)) return;
+    
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
-    setGameState(prev => ({
-      ...prev,
-      selectedIndices: [...prev.selectedIndices, index],
-    }));
+    setSelectedIndices(prev => [...prev, index]);
   };
 
-  // Dokunma serbest bırakıldığında
   const handleTouchEnd = () => {
-    if (gameState.selectedIndices.length === 0) return;
+    if (selectedIndices.length === 0) return;
 
-    // Seçili harfleri birleştir
-    const selectedWord = gameState.selectedIndices
-      .map(i => letters[i])
-      .join("")
-      .toUpperCase();
+    const attempt = selectedIndices.map(i => puzzle.letters[i]).join("");
+    const result = checkWord(puzzle, attempt);
 
-    // Kelimeyi doğrula
-    if (targetWords.includes(selectedWord) && !gameState.foundWords.includes(selectedWord)) {
+    if (result === "target" && !foundWords.includes(attempt)) {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
+      
+      const newFoundWords = [...foundWords, attempt];
+      setFoundWords(newFoundWords);
+      setScore(prev => prev + attempt.length * 10);
+      setSelectedIndices([]);
 
-      setMeaning(`✓ ${selectedWord} bulundu!`);
-      setShowMeaning(true);
-
-      const newFoundWords = [...gameState.foundWords, selectedWord];
-      setGameState(prev => ({
-        ...prev,
-        foundWords: newFoundWords,
-        score: prev.score + selectedWord.length * 10,
-        selectedIndices: [],
-      }));
-
-      // Tüm kelimeler bulundu mu?
-      if (newFoundWords.length === targetWords.length) {
-        setTimeout(() => {
-          setMeaning("🎉 Bölüm tamamlandı!");
-          setTimeout(() => {
-            if (gameState.currentLevel < 4) {
-              setGameState(prev => ({
-                ...prev,
-                currentLevel: prev.currentLevel + 1,
-                foundWords: [],
-                selectedIndices: [],
-              }));
-            } else {
-              setMeaning("🏆 Oyun tamamlandı!");
-            }
-            setShowMeaning(false);
-          }, 1500);
-        }, 500);
-      } else {
-        setTimeout(() => setShowMeaning(false), 1500);
+      if (newFoundWords.length === puzzle.targetWords.length) {
+        Alert.alert("Tebrikler!", "Bölüm Tamamlandı!", [
+          { text: "Sonraki Bölüm", onPress: () => setLevel(prev => prev + 1) }
+        ]);
       }
     } else {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-      setMeaning("✗ Kelime bulunamadı");
-      setShowMeaning(true);
-      setGameState(prev => ({
-        ...prev,
-        selectedIndices: [],
-      }));
-      setTimeout(() => setShowMeaning(false), 1000);
+      setSelectedIndices([]);
     }
   };
 
-  // Seçili harflerin konumlarını hesapla (çizgiler için)
-  const getSelectedLetterPositions = () => {
-    const positions: Array<{ x: number; y: number }> = [];
-    const radius = 80;
-    const centerX = width / 2;
-    const centerY = height * 0.62;
-
-    gameState.selectedIndices.forEach((index) => {
-      const angle = (index / letters.length) * Math.PI * 2 - Math.PI / 2;
-      const x = centerX + radius * Math.cos(angle);
-      const y = centerY + radius * Math.sin(angle);
-      positions.push({ x, y });
-    });
-
-    return positions;
+  const handleBackPress = () => {
+    Alert.alert(
+      "Çıkış",
+      "Oyundan çıkmak istediğinize emin misiniz?",
+      [
+        { text: "Hayır", style: "cancel" },
+        { text: "Evet", onPress: () => router.back() }
+      ]
+    );
   };
 
   return (
@@ -164,85 +109,52 @@ export default function GameScreen() {
       <ScreenContainer containerClassName="bg-transparent" edges={["top", "left", "right"]}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <IconSymbol name="arrow.left" size={24} color="#FFFFFF" />
+          <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
+            <IconSymbol name="chevron.left" size={28} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerInfo}>
-            <Text style={styles.headerCity}>{gameState.currentCity}</Text>
-            <Text style={styles.headerDistrict}>Bölüm {gameState.currentLevel}</Text>
+            <Text style={styles.levelText}>BÖLÜM {level}</Text>
+            <Text style={styles.scoreText}>SKOR: {score}</Text>
           </View>
-          <View style={styles.scoreBox}>
-            <Text style={styles.scoreText}>{gameState.score}</Text>
-          </View>
+          <TouchableOpacity style={styles.settingsBtn}>
+            <IconSymbol name="gearshape.fill" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
-        {/* Kutucuklar (Boş başlangıçta, doğru kelime bulunca doldurulacak) */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gridContainer}>
-          {targetWords.map((word, idx) => (
-            <View key={idx} style={styles.wordBox}>
-              <Text style={styles.wordBoxText}>
-                {gameState.foundWords.includes(word) ? word : "????"}
-              </Text>
-            </View>
-          ))}
+        {/* Kelime Kutucukları */}
+        <ScrollView contentContainerStyle={styles.wordsContainer} showsVerticalScrollIndicator={false}>
+          <Animated.View style={[styles.wordsGrid, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
+            {puzzle.targetWords.map((wordObj, idx) => (
+              <View key={idx} style={styles.wordRow}>
+                {wordObj.word.split("").map((char, charIdx) => (
+                  <View key={charIdx} style={[styles.letterBox, foundWords.includes(wordObj.word) && styles.letterBoxFound]}>
+                    <Text style={styles.letterBoxText}>
+                      {foundWords.includes(wordObj.word) ? char : ""}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </Animated.View>
         </ScrollView>
 
-        {/* Kelime Anlamı (Popup) */}
-        {showMeaning && (
-          <View style={styles.meaningPopup}>
-            <Text style={styles.meaningText}>{meaning}</Text>
-          </View>
-        )}
+        {/* Seçili Harf Gösterimi */}
+        <View style={styles.currentWordContainer}>
+          <Text style={styles.currentWordText}>
+            {selectedIndices.map(i => puzzle.letters[i]).join("")}
+          </Text>
+        </View>
 
-        {/* Seçili Harfler Gösterimi */}
-        {gameState.selectedIndices.length > 0 && (
-          <View style={styles.selectedWordsBox}>
-            <Text style={styles.selectedWordsText}>
-              {gameState.selectedIndices.map(i => letters[i]).join("")}
-            </Text>
-          </View>
-        )}
-
-        {/* Harf Çemberi - Harfler gösterilecek */}
+        {/* Harf Çemberi */}
         <View style={styles.circleContainer}>
           <View style={styles.circle}>
-            {/* Seçili harfler arasında çizgiler */}
-            {gameState.selectedIndices.length > 1 && (
-              <View style={styles.linesContainer}>
-                {getSelectedLetterPositions().map((pos, idx) => {
-                  if (idx === 0) return null;
-                  const prevPos = getSelectedLetterPositions()[idx - 1];
-                  const angle = Math.atan2(pos.y - prevPos.y, pos.x - prevPos.x);
-                  const distance = Math.sqrt(
-                    Math.pow(pos.x - prevPos.x, 2) + Math.pow(pos.y - prevPos.y, 2)
-                  );
-
-                  return (
-                    <View
-                      key={idx}
-                      style={[
-                        styles.line,
-                        {
-                          width: distance,
-                          left: prevPos.x,
-                          top: prevPos.y,
-                          transform: [{ rotate: `${(angle * 180) / Math.PI}deg` }],
-                        },
-                      ]}
-                    />
-                  );
-                })}
-              </View>
-            )}
-
-            {/* Harfler (gösterilecek) */}
-            {letters.map((letter, index) => {
-              const angle = (index / letters.length) * Math.PI * 2 - Math.PI / 2;
-              const radius = 80;
+            {puzzle.letters.map((letter, index) => {
+              const angle = (index / puzzle.letters.length) * Math.PI * 2 - Math.PI / 2;
+              const radius = 90;
               const x = radius * Math.cos(angle);
               const y = radius * Math.sin(angle);
 
-              const isSelected = gameState.selectedIndices.includes(index);
+              const isSelected = selectedIndices.includes(index);
 
               return (
                 <TouchableOpacity
@@ -251,13 +163,11 @@ export default function GameScreen() {
                     styles.letterCircle,
                     {
                       transform: [{ translateX: x }, { translateY: y }],
-                      backgroundColor: isSelected ? "#5A2EFF" : "#FFFFFF",
-                      borderColor: isSelected ? "#5A2EFF" : "#E5E7EB",
+                      backgroundColor: isSelected ? "#5A2EFF" : "rgba(255,255,255,0.9)",
                     },
                   ]}
-                  onPress={() => handleLetterPress(index)}
+                  onPressIn={() => handleLetterPress(index)}
                   onPressOut={handleTouchEnd}
-                  activeOpacity={0.8}
                 >
                   <Text style={[styles.letterText, { color: isSelected ? "#FFFFFF" : "#0F1E52" }]}>
                     {letter}
@@ -268,20 +178,13 @@ export default function GameScreen() {
           </View>
         </View>
 
-        {/* Kontrol Butonları */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.clearBtn}
-            onPress={() => setGameState(prev => ({ ...prev, selectedIndices: [] }))}
-          >
-            <Text style={styles.buttonText}>Temizle</Text>
+        {/* Alt Butonlar */}
+        <View style={styles.footerActions}>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => setSelectedIndices([])}>
+            <IconSymbol name="arrow.counterclockwise" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.submitBtn}
-            onPress={handleTouchEnd}
-            disabled={gameState.selectedIndices.length === 0}
-          >
-            <Text style={styles.buttonText}>Kontrol Et</Text>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert("İpucu", "Henüz ipucu yok!")}>
+            <IconSymbol name="lightbulb.fill" size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </ScreenContainer>
@@ -290,175 +193,73 @@ export default function GameScreen() {
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: "cover",
-  },
+  background: { flex: 1 },
   header: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "rgba(15, 30, 82, 0.8)",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(30, 47, 110, 0.5)",
-  },
-  headerInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  headerCity: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 16,
-  },
-  headerDistrict: {
-    color: "#8899BB",
-    fontSize: 12,
-  },
-  scoreBox: {
-    backgroundColor: "#5A2EFF",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  scoreText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 14,
-  },
-
-  // Kutucuklar
-  gridContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  wordBox: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#E5E7EB",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 8,
-    minWidth: 80,
-    justifyContent: "center",
     alignItems: "center",
-  },
-  wordBoxText: {
-    color: "#0F1E52",
-    fontWeight: "700",
-    fontSize: 14,
-    textAlign: "center",
-  },
-
-  // Kelime Anlamı
-  meaningPopup: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: [{ translateX: -100 }, { translateY: -30 }],
-    width: 200,
-    backgroundColor: "#0F1E52",
-    borderRadius: 16,
     padding: 16,
-    borderWidth: 2,
-    borderColor: "#5A2EFF",
-    zIndex: 100,
   },
-  meaningText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-
-  // Seçili Harfler
-  selectedWordsBox: {
-    alignSelf: "center",
-    backgroundColor: "#5A2EFF",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginVertical: 12,
-  },
-  selectedWordsText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 16,
-  },
-
-  // Harf Çemberi
-  circleContainer: {
-    flex: 1,
+  backBtn: { width: 40, height: 40, justifyContent: "center" },
+  headerInfo: { alignItems: "center" },
+  levelText: { color: "#FFFFFF", fontSize: 18, fontWeight: "900", letterSpacing: 2 },
+  scoreText: { color: "#FFD700", fontSize: 12, fontWeight: "700", marginTop: 2 },
+  settingsBtn: { width: 40, height: 40, alignItems: "flex-end", justifyContent: "center" },
+  
+  wordsContainer: { paddingVertical: 20, alignItems: "center" },
+  wordsGrid: { gap: 10 },
+  wordRow: { flexDirection: "row", gap: 5, justifyContent: "center" },
+  letterBox: {
+    width: 40, height: 40,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
   },
+  letterBoxFound: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF" },
+  letterBoxText: { color: "#0F1E52", fontSize: 20, fontWeight: "900" },
+
+  currentWordContainer: { height: 40, justifyContent: "center", alignItems: "center", marginBottom: 10 },
+  currentWordText: { color: "#FFFFFF", fontSize: 24, fontWeight: "900", letterSpacing: 4, textShadowColor: "#000", textShadowRadius: 10 },
+
+  circleContainer: { height: 280, justifyContent: "center", alignItems: "center" },
   circle: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    width: 220, height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.3)",
     justifyContent: "center",
     alignItems: "center",
-    position: "relative",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  linesContainer: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-  },
-  line: {
-    height: 3,
-    backgroundColor: "#5A2EFF",
-    position: "absolute",
-    transformOrigin: "0 50%",
   },
   letterCircle: {
     position: "absolute",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
+    width: 54, height: 54,
+    borderRadius: 27,
     justifyContent: "center",
     alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
-  letterText: {
-    fontWeight: "700",
-    fontSize: 18,
-  },
+  letterText: { fontSize: 24, fontWeight: "900" },
 
-  // Kontrol Butonları
-  buttonRow: {
+  footerActions: {
     flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 20,
+    justifyContent: "space-between",
+    paddingHorizontal: 40,
+    paddingBottom: 30,
   },
-  clearBtn: {
-    flex: 1,
-    backgroundColor: "#EF4444",
-    paddingVertical: 12,
-    borderRadius: 8,
+  actionBtn: {
+    width: 50, height: 50,
+    borderRadius: 25,
+    backgroundColor: "rgba(15, 30, 82, 0.6)",
+    justifyContent: "center",
     alignItems: "center",
-  },
-  submitBtn: {
-    flex: 1,
-    backgroundColor: "#22C55E",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 14,
-  },
+    borderWidth: 1,
+    borderColor: "rgba(90, 46, 255, 0.4)",
+  }
 });

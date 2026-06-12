@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  FlatList, Dimensions, Platform,
+  FlatList, Dimensions, Platform, ImageBackground,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 
 const { width } = Dimensions.get("window");
 const CARD_W = (width - 48) / 2;
+const BG_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
 
 // ─── Header ──────────────────────────────────────────────────────────────────
 function Header() {
@@ -37,22 +38,6 @@ function Header() {
           <Text style={[styles.leagueText, { color: leagueColor }]}>{state.league}</Text>
         </View>
       </View>
-      <View style={styles.resourceRow}>
-        <ResourceChip icon="⚡" value={state.energy} max={state.maxEnergy} color="#FF8A00" />
-        <ResourceChip icon="🪙" value={state.gold} color="#FFD700" />
-        <ResourceChip icon="💎" value={state.gems} color="#00BFFF" />
-      </View>
-    </View>
-  );
-}
-
-function ResourceChip({ icon, value, max, color }: { icon: string; value: number; max?: number; color: string }) {
-  return (
-    <View style={[styles.chip, { borderColor: color + "44" }]}>
-      <Text style={styles.chipIcon}>{icon}</Text>
-      <Text style={[styles.chipValue, { color }]}>
-        {max !== undefined ? `${value}/${max}` : value.toLocaleString()}
-      </Text>
     </View>
   );
 }
@@ -69,35 +54,15 @@ function CityCard({ city, index, onPress }: { city: City; index: number; onPress
       <Text style={styles.cityEmoji}>{city.emoji}</Text>
       <Text style={styles.cityName}>{city.name}</Text>
       <Text style={styles.cityCountry}>{city.country}</Text>
-      <View style={styles.starsRow}>
-        {[0, 1, 2].map(i => (
-          <Text key={i} style={{ fontSize: 14, opacity: i < city.stars ? 1 : 0.3 }}>⭐</Text>
-        ))}
-      </View>
       {isLocked && (
         <View style={styles.lockOverlay}>
-          <IconSymbol name="lock.fill" size={28} color="#FFFFFF88" />
-        </View>
-      )}
-      {city.completed && (
-        <View style={styles.completedBadge}>
-          <Text style={{ color: "#22C55E", fontSize: 10, fontWeight: "700" }}>✓</Text>
+          <IconSymbol name="lock.fill" size={24} color="#FFFFFF88" />
         </View>
       )}
     </TouchableOpacity>
   );
 }
 
-function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <View style={styles.sectionTitle}>
-      <Text style={styles.sectionTitleText}>{title}</Text>
-      <Text style={styles.sectionSubText}>{subtitle}</Text>
-    </View>
-  );
-}
-
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function AdventureScreen() {
   const router = useRouter();
   const { state } = useGame();
@@ -105,150 +70,121 @@ export default function AdventureScreen() {
   const handleCityPress = useCallback((city: City, index: number) => {
     if (index > 0 && !city.completed) return;
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Use string cast to bypass strict typed routes for dynamic screens
     (router as any).push({ pathname: "/game", params: { cityId: city.id, level: "1" } });
   }, [router]);
 
   const turkeyCities = state.cities.filter(c => c.country === "Türkiye");
-  const worldCities  = state.cities.filter(c => c.country !== "Türkiye");
 
   return (
-    <ScreenContainer containerClassName="bg-background" edges={["top", "left", "right"]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-        <Header />
+    <ImageBackground source={{ uri: BG_URL }} style={styles.container}>
+      <ScreenContainer containerClassName="bg-transparent" edges={["top", "left", "right"]}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+          <Header />
 
-        {/* Continue Button */}
-        <TouchableOpacity
-          style={styles.continueBtn}
-          onPress={() => {
-            if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            (router as any).push({ pathname: "/game", params: { cityId: state.currentCity, level: "1" } });
-          }}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.continueBtnText}>▶  DEVAM ET</Text>
-          <Text style={styles.continueBtnSub}>{state.cities.find(c => c.id === state.currentCity)?.name ?? "İstanbul"}</Text>
-        </TouchableOpacity>
+          {/* AI Lima Card */}
+          <TouchableOpacity
+            style={styles.limaCard}
+            onPress={() => (router as any).push("/lima")}
+            activeOpacity={0.85}
+          >
+            <View style={styles.limaContent}>
+              <Text style={styles.limaEmoji}>🦂</Text>
+              <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text style={styles.limaTitle}>Lima AI (Llama 3.2)</Text>
+                <Text style={styles.limaSub}>Kelime anlamlarını ve ipuçlarını sor!</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
 
-        {/* Lima Quick Access */}
-        <TouchableOpacity
-          style={styles.limaCard}
-          onPress={() => (router as any).push("/lima")}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.limaEmoji}>🦂</Text>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.limaTitle}>Lima ile Konuş</Text>
-            <Text style={styles.limaSub}>Kelime anlamları, ipuçları ve daha fazlası…</Text>
+          {/* Continue Button */}
+          <TouchableOpacity
+            style={styles.continueBtn}
+            onPress={() => (router as any).push({ pathname: "/game", params: { cityId: state.currentCity, level: "1" } })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.continueBtnText}>OYUNA BAŞLA</Text>
+          </TouchableOpacity>
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Şehirler</Text>
           </View>
-          <IconSymbol name="chevron.right" size={20} color="#5A2EFF" />
-        </TouchableOpacity>
 
-        {/* Turkey Map */}
-        <SectionTitle title="🇹🇷 Türkiye" subtitle={`${turkeyCities.filter(c => c.completed).length}/${turkeyCities.length} şehir`} />
-        <FlatList
-          data={turkeyCities}
-          keyExtractor={item => item.id}
-          numColumns={2}
-          scrollEnabled={false}
-          columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
-          contentContainerStyle={{ gap: 12 }}
-          renderItem={({ item, index }) => (
-            <CityCard city={item} index={index} onPress={() => handleCityPress(item, index)} />
-          )}
-        />
-
-        {/* World Map */}
-        <SectionTitle title="🌍 Dünya" subtitle={`${worldCities.filter(c => c.completed).length}/${worldCities.length} şehir`} />
-        <FlatList
-          data={worldCities}
-          keyExtractor={item => item.id}
-          numColumns={2}
-          scrollEnabled={false}
-          columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
-          contentContainerStyle={{ gap: 12 }}
-          renderItem={({ item, index }) => (
-            <CityCard city={item} index={index} onPress={() => handleCityPress(item, index)} />
-          )}
-        />
-      </ScrollView>
-    </ScreenContainer>
+          <FlatList
+            data={turkeyCities}
+            keyExtractor={item => item.id}
+            numColumns={2}
+            scrollEnabled={false}
+            columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
+            contentContainerStyle={{ gap: 12 }}
+            renderItem={({ item, index }) => (
+              <CityCard city={item} index={index} onPress={() => handleCityPress(item, index)} />
+            )}
+          />
+        </ScrollView>
+      </ScreenContainer>
+    </ImageBackground>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  container: { flex: 1 },
   header: {
-    backgroundColor: "#0F1E52",
+    backgroundColor: "rgba(15, 30, 82, 0.7)",
     marginHorizontal: 16, marginTop: 12,
     borderRadius: 20, padding: 16,
-    borderWidth: 1, borderColor: "#1E2F6E",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
   },
   avatarRow: { flexDirection: "row", alignItems: "center" },
   avatar: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: "#5A2EFF22",
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: "rgba(90, 46, 255, 0.2)",
     borderWidth: 2, borderColor: "#5A2EFF",
     alignItems: "center", justifyContent: "center",
   },
-  avatarEmoji: { fontSize: 26 },
-  playerName: { color: "#FFFFFF", fontWeight: "700", fontSize: 15, marginBottom: 4 },
-  xpBar: { height: 6, backgroundColor: "#1E2F6E", borderRadius: 3, overflow: "hidden", marginBottom: 2 },
-  xpFill: { height: "100%", backgroundColor: "#5A2EFF", borderRadius: 3 },
-  levelText: { color: "#8899BB", fontSize: 11 },
-  leagueBadge: { borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
-  leagueText: { fontSize: 11, fontWeight: "700" },
-  resourceRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-  chip: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: "#0B163F", borderWidth: 1, borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
+  avatarEmoji: { fontSize: 24 },
+  playerName: { color: "#FFFFFF", fontWeight: "800", fontSize: 16, marginBottom: 4 },
+  xpBar: { height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden", marginBottom: 4 },
+  xpFill: { height: "100%", backgroundColor: "#5A2EFF" },
+  levelText: { color: "#8899BB", fontSize: 10, fontWeight: "600" },
+  leagueBadge: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
+  leagueText: { fontSize: 10, fontWeight: "800" },
+  
+  limaCard: {
+    marginHorizontal: 16, marginTop: 16,
+    backgroundColor: "rgba(90, 46, 255, 0.3)",
+    borderRadius: 20, padding: 16,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.2)",
   },
-  chipIcon: { fontSize: 14 },
-  chipValue: { fontSize: 13, fontWeight: "700" },
+  limaContent: { flexDirection: "row", alignItems: "center" },
+  limaEmoji: { fontSize: 32 },
+  limaTitle: { color: "#FFFFFF", fontWeight: "800", fontSize: 16 },
+  limaSub: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 2 },
+
   continueBtn: {
     marginHorizontal: 16, marginTop: 16,
-    backgroundColor: "#5A2EFF", borderRadius: 18, paddingVertical: 16,
+    backgroundColor: "#FFFFFF", borderRadius: 20, paddingVertical: 18,
     alignItems: "center",
-    shadowColor: "#5A2EFF", shadowOpacity: 0.5, shadowRadius: 12, elevation: 8,
+    shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
   },
-  continueBtnText: { color: "#FFFFFF", fontSize: 18, fontWeight: "800", letterSpacing: 1 },
-  continueBtnSub: { color: "#FFFFFF99", fontSize: 12, marginTop: 2 },
-  limaCard: {
-    marginHorizontal: 16, marginTop: 12,
-    backgroundColor: "#0F1E52", borderRadius: 16,
-    flexDirection: "row", alignItems: "center",
-    padding: 14, borderWidth: 1, borderColor: "#5A2EFF44",
-  },
-  limaEmoji: { fontSize: 32 },
-  limaTitle: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
-  limaSub: { color: "#8899BB", fontSize: 12, marginTop: 2 },
-  sectionTitle: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    marginHorizontal: 16, marginTop: 24, marginBottom: 12,
-  },
-  sectionTitleText: { color: "#FFFFFF", fontSize: 18, fontWeight: "800" },
-  sectionSubText: { color: "#8899BB", fontSize: 12 },
+  continueBtnText: { color: "#0F1E52", fontSize: 18, fontWeight: "900", letterSpacing: 2 },
+
+  sectionHeader: { marginHorizontal: 16, marginTop: 24, marginBottom: 12 },
+  sectionTitle: { color: "#FFFFFF", fontSize: 20, fontWeight: "900", letterSpacing: 1 },
+
   cityCard: {
-    width: CARD_W, backgroundColor: "#0F1E52",
-    borderRadius: 16, padding: 14,
-    alignItems: "center", borderWidth: 1, borderColor: "#1E2F6E",
+    width: CARD_W, backgroundColor: "rgba(15, 30, 82, 0.6)",
+    borderRadius: 20, padding: 16,
+    alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
     overflow: "hidden",
   },
-  cityCardLocked: { opacity: 0.55 },
-  cityEmoji: { fontSize: 36, marginBottom: 6 },
-  cityName: { color: "#FFFFFF", fontWeight: "700", fontSize: 14, textAlign: "center" },
-  cityCountry: { color: "#8899BB", fontSize: 11, marginTop: 2 },
-  starsRow: { flexDirection: "row", gap: 2, marginTop: 6 },
+  cityCardLocked: { opacity: 0.6 },
+  cityEmoji: { fontSize: 40, marginBottom: 8 },
+  cityName: { color: "#FFFFFF", fontWeight: "800", fontSize: 14 },
+  cityCountry: { color: "rgba(255,255,255,0.5)", fontSize: 10, marginTop: 2 },
   lockOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#00000066",
-    alignItems: "center", justifyContent: "center",
-  },
-  completedBadge: {
-    position: "absolute", top: 8, right: 8,
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: "#22C55E22", borderWidth: 1, borderColor: "#22C55E",
+    backgroundColor: "rgba(0,0,0,0.4)",
     alignItems: "center", justifyContent: "center",
   },
 });

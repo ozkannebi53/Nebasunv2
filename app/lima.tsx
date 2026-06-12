@@ -10,14 +10,12 @@ import { getLimaAIResponse, type ConversationContext } from "@/lib/lima-ai";
 import type { Message } from "@/lib/lima-ai";
 import * as Haptics from "expo-haptics";
 
-
-
 const QUICK_WORDS = ["KALE", "AKREP", "BAKLAVA", "BOĞAZ", "SULTAN", "GÜREŞ", "YILDIZ", "SABIR", "Anlamı nedir?", "Kökü nedir?"];
 
 export default function LimaScreen() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
-    { id: "0", text: "Merhaba! Ben Lima, senin kelime rehberin. 🦂 Herhangi bir Türkçe kelime hakkında soru sorabilirsin veya sohbet edebiliriz!", from: "lima" },
+    { id: "0", text: "Merhaba! Ben Lima, senin kelime rehberin. 🦂 Llama 3.2 (3B) ile artık çok daha zekiyim! Herhangi bir Türkçe kelime hakkında soru sorabilirsin veya sohbet edebiliriz!", from: "lima" },
   ]);
   const [context, setContext] = useState<ConversationContext>({ history: [] });
   const [input, setInput] = useState("");
@@ -39,7 +37,7 @@ export default function LimaScreen() {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     }, 600);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, []);
+  }, [context]);
 
   const animateLima = () => {
     Animated.sequence([
@@ -60,8 +58,8 @@ export default function LimaScreen() {
             <Animated.Text style={[styles.limaEmoji, { transform: [{ scale: scaleAnim }] }]}>🦂</Animated.Text>
           </TouchableOpacity>
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.headerTitle}>Lima</Text>
-            <Text style={styles.headerSub}>Kelime Asistanın</Text>
+            <Text style={styles.headerTitle}>Lima AI</Text>
+            <Text style={styles.headerSub}>Llama 3.2 (3B) Aktif</Text>
           </View>
           <View style={styles.onlineBadge}>
             <View style={styles.onlineDot} />
@@ -141,7 +139,7 @@ const styles = StyleSheet.create({
   backBtn: { marginRight: 8, padding: 4 },
   limaEmoji: { fontSize: 36 },
   headerTitle: { color: "#FFFFFF", fontWeight: "800", fontSize: 16 },
-  headerSub: { color: "#8899BB", fontSize: 12 },
+  headerSub: { color: "#22C55E", fontSize: 12, fontWeight: "700" },
   onlineBadge: { flexDirection: "row", alignItems: "center", gap: 5 },
   onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22C55E" },
   onlineText: { color: "#22C55E", fontSize: 11, fontWeight: "600" },

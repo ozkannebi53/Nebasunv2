@@ -1,104 +1,93 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Animated, Dimensions, ImageBackground } from "react-native";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 
 const { width, height } = Dimensions.get("window");
 
 export default function SplashScreen() {
   const router = useRouter();
-  const scaleAnim = useRef(new Animated.Value(0.5)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const translateYAnim = useRef(new Animated.Value(100)).current;
+  
+  // Animasyon değerleri
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const letterSpacingAnim = useRef(new Animated.Value(20)).current;
+  const bgOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Logo animasyonu
-    Animated.parallel([
-      Animated.timing(scaleAnim, {
+    // Animasyon dizisi
+    Animated.sequence([
+      // Arka plan yavaşça belirsin
+      Animated.timing(bgOpacity, {
         toValue: 1,
-        duration: 800,
+        duration: 1000,
         useNativeDriver: true,
       }),
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 1200,
-        useNativeDriver: true,
-      }),
+      // Metin ve ölçek animasyonu
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 4,
+          useNativeDriver: true,
+        }),
+        Animated.timing(letterSpacingAnim, {
+          toValue: 5,
+          duration: 2000,
+          useNativeDriver: false, // letterSpacing native driver desteklemez
+        }),
+      ]),
     ]).start();
 
-    // Metin animasyonu (gecikmeli)
-    setTimeout(() => {
-      Animated.timing(translateYAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-    }, 400);
-
-    // Giriş ekranına geç
+    // 4 saniye sonra ana ekrana geç
     const timer = setTimeout(() => {
       router.replace("/(tabs)");
-    }, 3500);
+    }, 4500);
 
     return () => clearTimeout(timer);
-  }, [router, scaleAnim, opacityAnim, rotateAnim, translateYAnim]);
-
-  const rotation = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
+  }, []);
 
   return (
     <View style={styles.container}>
-      {/* Arka plan gradient */}
-      <View style={styles.background} />
-
-      {/* Merkez animasyonlu logo */}
-      <Animated.View
+      <StatusBar style="light" />
+      
+      {/* Koyu lacivert/siyah şık arka plan */}
+      <View style={[styles.background, { opacity: 1 }]} />
+      
+      <Animated.View 
         style={[
-          styles.logoContainer,
-          {
-            transform: [
-              { scale: scaleAnim },
-              { rotate: rotation },
-            ],
-            opacity: opacityAnim,
-          },
+          styles.content, 
+          { 
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }]
+          }
         ]}
       >
-        <Text style={styles.logo}>🦂</Text>
+        {/* Beyaz, şık ve animasyonlu font */}
+        <Animated.Text 
+          style={[
+            styles.brandText,
+            { letterSpacing: letterSpacingAnim }
+          ]}
+        >
+          AKREPGMİ
+        </Animated.Text>
+        
+        <View style={styles.separator} />
+        
+        <Text style={styles.subText}>NEBASUN v3.1</Text>
       </Animated.View>
 
-      {/* Başlık */}
-      <Animated.View
-        style={[
-          styles.titleContainer,
-          {
-            transform: [{ translateY: translateYAnim }],
-            opacity: opacityAnim,
-          },
-        ]}
-      >
-        <Text style={styles.title}>NEBASUN</Text>
-        <Text style={styles.subtitle}>Kelime Oyunu</Text>
-      </Animated.View>
-
-      {/* Alt metin */}
-      <Animated.View
-        style={[
-          styles.bottomText,
-          {
-            opacity: opacityAnim,
-          },
-        ]}
-      >
-        <Text style={styles.loadingText}>Yükleniyor...</Text>
-      </Animated.View>
+      <View style={styles.footer}>
+        <Text style={styles.loadingText}>YÜKLENİYOR</Text>
+        <View style={styles.loadingBarContainer}>
+          <Animated.View style={styles.loadingBar} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -106,57 +95,62 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#050A1E",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0B163F",
   },
   background: {
-    position: "absolute",
-    width: width,
-    height: height,
-    backgroundColor: "#0B163F",
-    // Gradient efekti için overlay
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#050A1E",
   },
-  logoContainer: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: "rgba(90, 46, 255, 0.1)",
-    borderWidth: 2,
-    borderColor: "rgba(90, 46, 255, 0.3)",
+  content: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 40,
   },
-  logo: {
-    fontSize: 80,
-  },
-  titleContainer: {
-    alignItems: "center",
-    marginBottom: 60,
-  },
-  title: {
+  brandText: {
     color: "#FFFFFF",
-    fontSize: 48,
-    fontWeight: "800",
-    letterSpacing: 3,
-    marginBottom: 8,
+    fontSize: 42,
+    fontWeight: "900",
+    textAlign: "center",
+    textShadowColor: "rgba(90, 46, 255, 0.8)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 20,
   },
-  subtitle: {
+  separator: {
+    width: 60,
+    height: 3,
+    backgroundColor: "#5A2EFF",
+    marginVertical: 15,
+    borderRadius: 2,
+  },
+  subText: {
     color: "#8899BB",
-    fontSize: 18,
-    fontWeight: "600",
-    letterSpacing: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 4,
   },
-  bottomText: {
+  footer: {
     position: "absolute",
     bottom: 60,
     alignItems: "center",
   },
   loadingText: {
     color: "#5A2EFF",
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 10,
+    fontWeight: "800",
     letterSpacing: 2,
+    marginBottom: 10,
   },
+  loadingBarContainer: {
+    width: 150,
+    height: 2,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 1,
+    overflow: "hidden",
+  },
+  loadingBar: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#5A2EFF",
+  }
 });
