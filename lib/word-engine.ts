@@ -10,6 +10,7 @@ export interface WordEntry {
 
 export const WORD_DATABASE: WordEntry[] = [
   // Günlük Yaşam
+  { word: "ADA",   meaning: "Dört tarafı sularla çevrili kara parçası.", category: "Coğrafya" },
   { word: "KALEM", meaning: "Yazı yazmak için kullanılan araç.", category: "Günlük Yaşam", origin: "Arapça", funFact: "Türkçede 'kalem' hem yazma aracını hem de fiyat anlamına gelir." },
   { word: "MASA",  meaning: "Üzerinde çalışılan düz yüzeyli mobilya.", category: "Günlük Yaşam", origin: "Portekizce" },
   { word: "KAPAK", meaning: "Bir şeyin üstünü örten parça.", category: "Günlük Yaşam" },
@@ -48,7 +49,7 @@ export const WORD_DATABASE: WordEntry[] = [
   { word: "AKREP",   meaning: "Zehirli kuyruğu olan eklembacaklı.", category: "Hayvanlar", funFact: "Akrepler 430 milyon yıldır var olmaktadır." },
   { word: "EJDERHA", meaning: "Mitolojik ateş püskürten yaratık.", category: "Mitoloji" },
   { word: "KAPLAN",  meaning: "Çizgili büyük yırtıcı kedi.", category: "Hayvanlar" },
-  { word: "KARINCA", meaning: "Küçük sosyal böcek.", category: "Hayvanlar", funFact: "Karıncalar kendi ağırlıklarının 50 katını taşıyabilir." },
+  { word: "KARINCA", meaning: "Küçük sosyal böcek.", category: "Hayvanlar", funFact: "Karınca kendi ağırlığının 50 katını taşıyabilir." },
   { word: "BALIK",   meaning: "Suda yaşayan omurgalı.", category: "Hayvanlar" },
   { word: "KAPLUMBAĞA", meaning: "Sert kabuklu sürüngen.", category: "Hayvanlar", funFact: "Bazı kaplumbağalar 200 yıl yaşayabilir." },
   // Yemekler
@@ -84,6 +85,12 @@ export const WORD_DATABASE: WordEntry[] = [
 
 // ─── Puzzle Generator ─────────────────────────────────────────────────────────
 
+export interface GridPosition {
+  row: number;
+  col: number;
+  direction: "horizontal" | "vertical";
+}
+
 export interface PuzzleWord {
   word: string;
   meaning: string;
@@ -91,6 +98,7 @@ export interface PuzzleWord {
   clue: string;
   found: boolean;
   isBonus: boolean;
+  gridPos?: GridPosition;
 }
 
 export interface Puzzle {
@@ -112,22 +120,51 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+// WOW Tarzı ızgara yerleşim algoritması (Basitleştirilmiş)
+function generateGridPositions(words: string[]): Record<string, GridPosition> {
+  const positions: Record<string, GridPosition> = {};
+  
+  // İlk kelime yatay olarak merkeze (0,0)
+  if (words.length > 0) {
+    positions[words[0]] = { row: 0, col: 0, direction: "horizontal" };
+  }
+  
+  // Diğer kelimeleri basitçe alt alta veya yan yana dizelim (Şimdilik kesişim karmaşıklığına girmeden düzenli dizim)
+  for (let i = 1; i < words.length; i++) {
+    positions[words[i]] = { 
+      row: i * 2, 
+      col: 0, 
+      direction: "horizontal" 
+    };
+  }
+  
+  return positions;
+}
+
 export function generatePuzzle(cityId: string, level: number, seed?: number): Puzzle {
   const rng = seed ?? Date.now();
-  // Pick 4-6 target words based on level
-  const count = Math.min(4 + Math.floor(level / 3), 7);
-  const pool = shuffle(WORD_DATABASE).slice(0, count * 4);
-  const targets = pool.slice(0, count).filter(w => w.word.length >= 3 && w.word.length <= 8);
+  const count = Math.min(3 + Math.floor(level / 5), 6);
+  
+  // Seviyeye göre kelime uzunluğu filtrele
+  const minLen = level < 5 ? 3 : 4;
+  const maxLen = level < 10 ? 5 : 8;
+  
+  const pool = shuffle(WORD_DATABASE).filter(w => w.word.length >= minLen && w.word.length <= maxLen);
+  const targets = pool.slice(0, count);
 
-  // Collect all unique letters from target words
+  // Harf havuzunu oluştur (Sadece hedef kelimelerdeki harfler + 1-2 ekstra)
   const letterSet = new Set<string>();
   targets.forEach(w => w.word.split("").forEach(c => letterSet.add(c)));
-  // Add 2-3 random extra letters
+  
   const extras = "ABCDEFGHIJKLMNOPRSTUYZÇĞİÖŞÜ".split("");
-  shuffle(extras).slice(0, 3).forEach(c => letterSet.add(c));
-  const letters = shuffle(Array.from(letterSet)).slice(0, Math.min(letterSet.size, 9));
+  shuffle(extras).slice(0, 1).forEach(c => letterSet.add(c));
+  
+  const letters = shuffle(Array.from(letterSet)).slice(0, Math.min(letterSet.size, 7));
 
-  // Bonus words: valid Turkish words that can be formed from these letters
+  // Izgara pozisyonlarını hesapla
+  const gridPosMap = generateGridPositions(targets.map(t => t.word));
+
+  // Bonus kelimeler
   const letterCount: Record<string, number> = {};
   letters.forEach(l => { letterCount[l] = (letterCount[l] ?? 0) + 1; });
 
@@ -152,15 +189,16 @@ export function generatePuzzle(cityId: string, level: number, seed?: number): Pu
       word: w.word,
       meaning: w.meaning,
       category: w.category,
-      clue: w.meaning.slice(0, 40) + (w.meaning.length > 40 ? "…" : ""),
+      clue: w.meaning,
       found: false,
       isBonus: false,
+      gridPos: gridPosMap[w.word]
     })),
     bonusWords: bonusPool.map(w => ({
       word: w.word,
       meaning: w.meaning,
       category: w.category,
-      clue: w.meaning.slice(0, 40) + (w.meaning.length > 40 ? "…" : ""),
+      clue: w.meaning,
       found: false,
       isBonus: true,
     })),
@@ -169,18 +207,14 @@ export function generatePuzzle(cityId: string, level: number, seed?: number): Pu
 }
 
 export function checkWord(puzzle: Puzzle, attempt: string): "target" | "bonus" | "invalid" {
-  const upper = attempt.toUpperCase().replace(/İ/g, "İ");
-  if (puzzle.targetWords.find(w => w.word === upper && !w.found)) return "target";
-  if (puzzle.bonusWords.find(w => w.word === upper && !w.found)) return "bonus";
-  if (puzzle.allValidWords.has(upper)) return "invalid"; // already found
+  const upper = attempt.toUpperCase().replace(/i/g, "İ");
+  if (puzzle.targetWords.find(w => w.word === upper)) return "target";
+  if (puzzle.bonusWords.find(w => w.word === upper)) return "bonus";
   return "invalid";
 }
 
 export function getLimaResponse(word: string): string {
   const entry = WORD_DATABASE.find(w => w.word === word.toUpperCase());
-  if (!entry) return `"${word}" kelimesini buldun! Harika iş! 🦂`;
-  let msg = `✨ **${entry.word}** — ${entry.meaning}`;
-  if (entry.origin) msg += `\n📜 Köken: ${entry.origin}`;
-  if (entry.funFact) msg += `\n💡 ${entry.funFact}`;
-  return msg;
+  if (!entry) return `"${word}" kelimesini buldun! 🦂`;
+  return `✨ **${entry.word}** — ${entry.meaning}`;
 }

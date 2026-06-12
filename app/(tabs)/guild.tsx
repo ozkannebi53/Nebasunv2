@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, Alert, Platform } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Platform, ImageBackground } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useGame } from "@/lib/game-context";
 import * as Haptics from "expo-haptics";
+
+const BG_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
 
 const GUILD_MEMBERS = [
   { id: "1", name: "AkrepUstası",  level: 25, contribution: 1200, emoji: "🦂" },
@@ -12,185 +14,90 @@ const GUILD_MEMBERS = [
   { id: "5", name: "TürkçeKral",   level: 7,  contribution: 180,  emoji: "🏆" },
 ];
 
-const GUILD_BOSSES = [
-  { id: "b1", name: "Dev Akrep",    hp: 10000, maxHp: 10000, emoji: "🦂", reward: "500 Altın" },
-  { id: "b2", name: "Ejderha",      hp: 0,     maxHp: 25000, emoji: "🐉", reward: "Nadir Sandık", locked: true },
-  { id: "b3", name: "Kum Solucanı", hp: 0,     maxHp: 50000, emoji: "🪱", reward: "Efsane Akrep",  locked: true },
-];
-
 export default function GuildScreen() {
   const { state } = useGame();
-  const [tab, setTab] = useState<"info" | "bosses" | "tasks">("info");
-
-  const guildLevel = 7;
-  const guildXp = 3400;
-  const guildXpMax = 5000;
+  const [tab, setTab] = useState<"members" | "tasks">("members");
 
   return (
-    <ScreenContainer containerClassName="bg-background" edges={["top", "left", "right"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>🛡️ Lonca</Text>
-        <View style={styles.levelBadge}>
-          <Text style={styles.levelText}>Seviye {guildLevel}</Text>
+    <ImageBackground source={{ uri: BG_URL }} style={styles.container}>
+      <ScreenContainer containerClassName="bg-transparent" edges={["top", "left", "right"]}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>🛡️ Lonca</Text>
+          <View style={styles.levelBadge}>
+            <Text style={styles.levelText}>Seviye 7</Text>
+          </View>
         </View>
-      </View>
 
-      {/* Guild XP */}
-      <View style={styles.xpContainer}>
-        <View style={styles.xpBar}>
-          <View style={[styles.xpFill, { width: `${(guildXp / guildXpMax) * 100}%` as any }]} />
-        </View>
-        <Text style={styles.xpLabel}>{guildXp}/{guildXpMax} Lonca XP</Text>
-      </View>
-
-      {/* Tabs */}
-      <View style={styles.tabs}>
-        {(["info", "bosses", "tasks"] as const).map(t => (
-          <TouchableOpacity
-            key={t}
-            style={[styles.tab, tab === t && styles.tabActive]}
-            onPress={() => setTab(t)}
+        <View style={styles.tabs}>
+          <TouchableOpacity 
+            style={[styles.tab, tab === "members" && styles.tabActive]} 
+            onPress={() => setTab("members")}
           >
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === "info" ? "Üyeler" : t === "bosses" ? "Bosslar" : "Görevler"}
-            </Text>
+            <Text style={[styles.tabText, tab === "members" && styles.tabTextActive]}>Üyeler</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-
-      {tab === "info" && (
-        <FlatList
-          data={GUILD_MEMBERS}
-          keyExtractor={item => item.id}
-          contentContainerStyle={{ padding: 16, gap: 8 }}
-          renderItem={({ item, index }) => (
-            <View style={styles.memberCard}>
-              <Text style={styles.rank}>#{index + 1}</Text>
-              <Text style={styles.memberEmoji}>{item.emoji}</Text>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={styles.memberName}>{item.name}</Text>
-                <Text style={styles.memberSub}>Seviye {item.level}</Text>
-              </View>
-              <View style={styles.contribBadge}>
-                <Text style={styles.contribText}>🪙 {item.contribution}</Text>
-              </View>
-            </View>
-          )}
-        />
-      )}
-
-      {tab === "bosses" && (
-        <FlatList
-          data={GUILD_BOSSES}
-          keyExtractor={item => item.id}
-          contentContainerStyle={{ padding: 16, gap: 12 }}
-          renderItem={({ item }) => (
-            <View style={[styles.bossCard, (item as any).locked && { opacity: 0.5 }]}>
-              <Text style={styles.bossEmoji}>{item.emoji}</Text>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.bossName}>{item.name}</Text>
-                <View style={styles.hpBar}>
-                  <View style={[styles.hpFill, { width: `${(item.hp / item.maxHp) * 100}%` as any }]} />
-                </View>
-                <Text style={styles.bossHp}>{item.hp.toLocaleString()}/{item.maxHp.toLocaleString()} HP</Text>
-                <Text style={styles.bossReward}>🎁 {item.reward}</Text>
-              </View>
-              {!(item as any).locked && (
-                <TouchableOpacity
-                  style={styles.attackBtn}
-                  onPress={() => {
-                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    Alert.alert("⚔️ Saldır!", `${item.name}'a saldırıyorsun!`);
-                  }}
-                >
-                  <Text style={styles.attackBtnText}>⚔️</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        />
-      )}
-
-      {tab === "tasks" && (
-        <View style={{ padding: 16, gap: 10 }}>
-          {[
-            { title: "Günlük: 50 Kelime Bul",   progress: 23, target: 50, reward: "🪙 100", type: "Günlük"  },
-            { title: "Haftalık: 5 Düello Kazan", progress: 2,  target: 5,  reward: "💎 20",  type: "Haftalık"},
-            { title: "Sezonluk: 10 Şehir Bitir", progress: 1,  target: 10, reward: "🦂 Nadir Akrep", type: "Sezonluk"},
-          ].map((task, i) => (
-            <View key={i} style={styles.taskCard}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-                <Text style={styles.taskTitle}>{task.title}</Text>
-                <Text style={styles.taskType}>{task.type}</Text>
-              </View>
-              <View style={styles.taskBar}>
-                <View style={[styles.taskFill, { width: `${(task.progress / task.target) * 100}%` as any }]} />
-              </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
-                <Text style={styles.taskProgress}>{task.progress}/{task.target}</Text>
-                <Text style={styles.taskReward}>{task.reward}</Text>
-              </View>
-            </View>
-          ))}
+          <TouchableOpacity 
+            style={[styles.tab, tab === "tasks" && styles.tabActive]} 
+            onPress={() => setTab("tasks")}
+          >
+            <Text style={[styles.tabText, tab === "tasks" && styles.tabTextActive]}>Görevler</Text>
+          </TouchableOpacity>
         </View>
-      )}
-    </ScreenContainer>
+
+        {tab === "members" ? (
+          <FlatList
+            data={GUILD_MEMBERS}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ padding: 16, gap: 10 }}
+            renderItem={({ item, index }) => (
+              <View style={styles.card}>
+                <Text style={styles.rank}>#{index + 1}</Text>
+                <Text style={styles.emoji}>{item.emoji}</Text>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.name}>{item.name}</Text>
+                  <Text style={styles.sub}>Seviye {item.level}</Text>
+                </View>
+                <View style={styles.contrib}>
+                  <Text style={styles.contribText}>🪙 {item.contribution}</Text>
+                </View>
+              </View>
+            )}
+          />
+        ) : (
+          <View style={{ padding: 16, gap: 12 }}>
+            <View style={styles.card}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>Haftalık Hedef: 1000 Kelime</Text>
+                <View style={styles.barBg}><View style={[styles.barFill, { width: "45%" }]} /></View>
+                <Text style={styles.sub}>450 / 1000 Kelime</Text>
+              </View>
+            </View>
+            <Text style={styles.infoText}>Lonca savaşları yakında aktif edilecek! 🦂</Text>
+          </View>
+        )}
+      </ScreenContainer>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
-  },
-  headerTitle: { color: "#FFFFFF", fontWeight: "800", fontSize: 22 },
-  levelBadge: { backgroundColor: "#5A2EFF22", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: "#5A2EFF" },
-  levelText: { color: "#5A2EFF", fontWeight: "700", fontSize: 12 },
-  xpContainer: { paddingHorizontal: 16, marginBottom: 8 },
-  xpBar: { height: 8, backgroundColor: "#1E2F6E", borderRadius: 4, overflow: "hidden" },
-  xpFill: { height: "100%", backgroundColor: "#5A2EFF", borderRadius: 4 },
-  xpLabel: { color: "#8899BB", fontSize: 11, marginTop: 4 },
-  tabs: { flexDirection: "row", marginHorizontal: 16, marginBottom: 4, backgroundColor: "#0F1E52", borderRadius: 12, padding: 4 },
-  tab: { flex: 1, paddingVertical: 8, alignItems: "center", borderRadius: 10 },
+  container: { flex: 1 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20 },
+  headerTitle: { color: "white", fontSize: 24, fontWeight: "900" },
+  levelBadge: { backgroundColor: "rgba(90, 46, 255, 0.3)", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: "#5A2EFF" },
+  levelText: { color: "white", fontWeight: "700", fontSize: 12 },
+  tabs: { flexDirection: "row", marginHorizontal: 20, backgroundColor: "rgba(15, 30, 82, 0.8)", borderRadius: 15, padding: 5 },
+  tab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 12 },
   tabActive: { backgroundColor: "#5A2EFF" },
-  tabText: { color: "#8899BB", fontWeight: "600", fontSize: 13 },
-  tabTextActive: { color: "#FFFFFF" },
-  memberCard: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: "#0F1E52", borderRadius: 14, padding: 12,
-    borderWidth: 1, borderColor: "#1E2F6E",
-  },
-  rank: { color: "#8899BB", fontWeight: "700", fontSize: 14, width: 24 },
-  memberEmoji: { fontSize: 28 },
-  memberName: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
-  memberSub: { color: "#8899BB", fontSize: 12, marginTop: 2 },
-  contribBadge: { backgroundColor: "#FFD70022", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
-  contribText: { color: "#FFD700", fontWeight: "700", fontSize: 12 },
-  bossCard: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: "#0F1E52", borderRadius: 16, padding: 14,
-    borderWidth: 1, borderColor: "#1E2F6E",
-  },
-  bossEmoji: { fontSize: 40 },
-  bossName: { color: "#FFFFFF", fontWeight: "800", fontSize: 15, marginBottom: 6 },
-  hpBar: { height: 8, backgroundColor: "#1E2F6E", borderRadius: 4, overflow: "hidden", marginBottom: 4 },
-  hpFill: { height: "100%", backgroundColor: "#EF4444", borderRadius: 4 },
-  bossHp: { color: "#EF4444", fontSize: 11, fontWeight: "600" },
-  bossReward: { color: "#FFD700", fontSize: 12, marginTop: 4 },
-  attackBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: "#EF4444", alignItems: "center", justifyContent: "center",
-  },
-  attackBtnText: { fontSize: 20 },
-  taskCard: {
-    backgroundColor: "#0F1E52", borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: "#1E2F6E",
-  },
-  taskTitle: { color: "#FFFFFF", fontWeight: "700", fontSize: 13, flex: 1 },
-  taskType: { color: "#8899BB", fontSize: 11 },
-  taskBar: { height: 6, backgroundColor: "#1E2F6E", borderRadius: 3, overflow: "hidden" },
-  taskFill: { height: "100%", backgroundColor: "#22C55E", borderRadius: 3 },
-  taskProgress: { color: "#8899BB", fontSize: 11 },
-  taskReward: { color: "#FFD700", fontSize: 12, fontWeight: "600" },
+  tabText: { color: "rgba(255,255,255,0.5)", fontWeight: "700" },
+  tabTextActive: { color: "white" },
+  card: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(15, 30, 82, 0.7)", borderRadius: 18, padding: 15, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  rank: { color: "rgba(255,255,255,0.4)", fontWeight: "900", width: 30 },
+  emoji: { fontSize: 28 },
+  name: { color: "white", fontWeight: "800", fontSize: 15 },
+  sub: { color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2 },
+  contrib: { backgroundColor: "rgba(255, 215, 0, 0.15)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+  contribText: { color: "#FFD700", fontWeight: "800", fontSize: 12 },
+  barBg: { height: 8, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 4, marginVertical: 8, overflow: "hidden" },
+  barFill: { height: "100%", backgroundColor: "#5A2EFF" },
+  infoText: { color: "rgba(255,255,255,0.4)", textAlign: "center", marginTop: 20, fontStyle: "italic" }
 });

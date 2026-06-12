@@ -60,7 +60,7 @@ export default function SplashScreen() {
             { letterSpacing: letterSpacingAnim }
           ]}
         >
-          AKREPGMİ
+          NEBASUN
         </Animated.Text>
         
         <View style={styles.separator} />
