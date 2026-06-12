@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   Platform,
   Animated,
   PanResponder,
-  LayoutAnimation,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -19,14 +18,14 @@ import { generatePuzzle, checkWord, type Puzzle } from "@/lib/word-engine";
 import Svg, { Path, Circle } from "react-native-svg";
 import { useGame } from "@/lib/game-context";
 
-const { width, height } = Dimensions.get("window");
-const BG_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
+const { width } = Dimensions.get("window");
+const BG_URL =
+  "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
 
 const CIRCLE_SIZE = width * 0.75;
-const RADIUS = (CIRCLE_SIZE / 2) - 50;
+const RADIUS = CIRCLE_SIZE / 2 - 50;
 const LETTER_SIZE = 56;
 const GRID_SIZE = 44;
-const WHEEL_OFFSET_Y = height * 0.65;
 
 interface GridCell {
   id: string;
@@ -57,11 +56,26 @@ export default function GameScreen() {
   const [touchTrail, setTouchTrail] = useState<TouchPoint[]>([]);
   const [gridData, setGridData] = useState<GridCell[]>([]);
   const [gameWon, setGameWon] = useState(false);
+  const [flashWord, setFlashWord] = useState<string | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  const wheelRef = useRef<View>(null);
+  const flashAnim = useRef(new Animated.Value(0)).current;
+
+  // ─── Refs to avoid stale closures in PanResponder ────────────────────────────
+  const puzzleRef = useRef<Puzzle | null>(null);
+  const selectedIndicesRef = useRef<number[]>([]);
+  const foundWordsRef = useRef<string[]>([]);
+  const gameWonRef = useRef(false);
   const isTouching = useRef(false);
+  const gridDataRef = useRef<GridCell[]>([]);
+
+  // Keep refs in sync with state
+  useEffect(() => { puzzleRef.current = puzzle; }, [puzzle]);
+  useEffect(() => { selectedIndicesRef.current = selectedIndices; }, [selectedIndices]);
+  useEffect(() => { foundWordsRef.current = foundWords; }, [foundWords]);
+  useEffect(() => { gameWonRef.current = gameWon; }, [gameWon]);
+  useEffect(() => { gridDataRef.current = gridData; }, [gridData]);
 
   const letterPositions = useMemo(() => {
     if (!puzzle) return [];
@@ -73,7 +87,10 @@ export default function GameScreen() {
     });
   }, [puzzle]);
 
-  // Initialize grid
+  const letterPositionsRef = useRef(letterPositions);
+  useEffect(() => { letterPositionsRef.current = letterPositions; }, [letterPositions]);
+
+  // ─── Initialize grid ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!puzzle) return;
 
@@ -95,14 +112,18 @@ export default function GameScreen() {
           wordId: wordIdx,
         });
       });
-      startY += GRID_SIZE + 15;
+      startY += GRID_SIZE + 18;
     });
 
     setGridData(newGrid);
-    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
   }, [puzzle]);
 
-  // Load puzzle
+  // ─── Load puzzle ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const newPuzzle = generatePuzzle(cityId, level);
     setPuzzle(newPuzzle);
@@ -113,142 +134,287 @@ export default function GameScreen() {
     fadeAnim.setValue(0);
   }, [level, cityId]);
 
-  // PanResponder for touch tracking
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        if (gameWon || !puzzle) return;
-        isTouching.current = true;
-        setSelectedIndices([]);
-        setTouchTrail([]);
+  // ─── Flash animation ─────────────────────────────────────────────────────────
+  const triggerFlash = useCallback((word: string) => {
+    setFlashWord(word);
+    flashAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(flashAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.timing(flashAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start(() => setFlashWord(null));
+  }, []);
 
-        const { locationX, locationY } = evt.nativeEvent;
-        checkLetterAtPosition(locationX, locationY, true);
-      },
-      onPanResponderMove: (evt) => {
-        if (!isTouching.current || gameWon || !puzzle) return;
-
-        const { locationX, locationY } = evt.nativeEvent;
-
-        // Add to trail
-        setTouchTrail((prev) => [...prev, { x: locationX, y: locationY }]);
-
-        // Check if touching any letter
-        checkLetterAtPosition(locationX, locationY, false);
-      },
-      onPanResponderRelease: () => {
-        isTouching.current = false;
-
-        if (!puzzle || selectedIndices.length === 0) {
-          setTouchTrail([]);
-          setSelectedIndices([]);
-          return;
-        }
-
-        const attempt = selectedIndices.map((i) => puzzle.letters[i]).join("").toUpperCase();
-        const result = checkWord(puzzle, attempt);
-
-        if (result === "target" && !foundWords.includes(attempt)) {
-          onTargetFound(attempt);
-        } else if (result === "bonus" && !foundWords.includes(attempt)) {
-          onBonusFound(attempt);
-        } else {
-          if (Platform.OS !== "web") {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          }
-          shake();
-        }
-
-        setTimeout(() => {
-          setTouchTrail([]);
-          setSelectedIndices([]);
-        }, 300);
-      },
-    })
-  ).current;
-
-  const checkLetterAtPosition = (x: number, y: number, isStart: boolean) => {
-    if (!puzzle) return;
-
-    letterPositions.forEach((pos) => {
-      const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
-
-      if (dist < 45) {
-        setSelectedIndices((prev) => {
-          // Prevent adding same letter twice in a row
-          if (prev.length > 0 && prev[prev.length - 1] === pos.index) {
-            return prev;
-          }
-
-          // Prevent going back to previous letter
-          if (prev.length > 1 && prev[prev.length - 2] === pos.index) {
-            return prev;
-          }
-
-          if (!prev.includes(pos.index)) {
-            if (Platform.OS !== "web") {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }
-            return [...prev, pos.index];
-          }
-          return prev;
-        });
-      }
-    });
-  };
-
-  const onTargetFound = (word: string) => {
-    if (Platform.OS !== "web") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-
-    setFoundWords((prev) => [...prev, word]);
-    dispatch({ type: "QUEST_PROGRESS", questId: "q1", amount: 1 });
-
-    // Mark grid cells
-    setGridData((prev) =>
-      prev.map((cell) =>
-        puzzle?.targetWords[cell.wordId].word === word
-          ? { ...cell, isFound: true }
-          : cell
-      )
-    );
-
-    // Check if level complete
-    const allFound = puzzle?.targetWords.every(
-      (tw) => tw.word === word || foundWords.includes(tw.word)
-    );
-
-    if (allFound) {
-      setGameWon(true);
-      setTimeout(() => {
-        dispatch({ type: "ADD_XP", amount: 150 });
-        dispatch({ type: "ADD_GOLD", amount: 100 });
-        dispatch({ type: "COMPLETE_CITY", cityId, stars: 3 });
-        setLevel((prev) => prev + 1);
-      }, 1200);
-    }
-  };
-
-  const onBonusFound = (word: string) => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    }
-    setFoundWords((prev) => [...prev, word]);
-    dispatch({ type: "ADD_GOLD", amount: 20 });
-  };
-
-  const shake = () => {
+  // ─── Shake animation ─────────────────────────────────────────────────────────
+  const shake = useCallback(() => {
     Animated.sequence([
       Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
     ]).start();
-  };
+  }, []);
 
+  // ─── Word found handlers ──────────────────────────────────────────────────────
+  const onTargetFound = useCallback(
+    (word: string) => {
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      triggerFlash(word);
+
+      setFoundWords((prev) => {
+        const updated = [...prev, word];
+        foundWordsRef.current = updated;
+        return updated;
+      });
+
+      dispatch({ type: "QUEST_PROGRESS", questId: "q1", amount: 1 });
+
+      // Mark grid cells as found
+      setGridData((prev) => {
+        const puzz = puzzleRef.current;
+        if (!puzz) return prev;
+        const updated = prev.map((cell) =>
+          puzz.targetWords[cell.wordId]?.word === word
+            ? { ...cell, isFound: true }
+            : cell
+        );
+        gridDataRef.current = updated;
+        return updated;
+      });
+
+      // Check if level complete — use ref to get latest foundWords
+      const puzz = puzzleRef.current;
+      if (!puzz) return;
+
+      const allFound = puzz.targetWords.every(
+        (tw) => tw.word === word || foundWordsRef.current.includes(tw.word)
+      );
+
+      if (allFound) {
+        setGameWon(true);
+        gameWonRef.current = true;
+        setTimeout(() => {
+          dispatch({ type: "ADD_XP", amount: 150 });
+          dispatch({ type: "ADD_GOLD", amount: 100 });
+          dispatch({ type: "COMPLETE_CITY", cityId, stars: 3 });
+          setLevel((prev) => prev + 1);
+        }, 1200);
+      }
+    },
+    [dispatch, cityId, triggerFlash]
+  );
+
+  const onBonusFound = useCallback(
+    (word: string) => {
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }
+      triggerFlash(word);
+      setFoundWords((prev) => [...prev, word]);
+      dispatch({ type: "ADD_GOLD", amount: 20 });
+    },
+    [dispatch, triggerFlash]
+  );
+
+  // ─── Check letter at touch position (uses refs — no stale closure) ────────────
+  const checkLetterAtPosition = useCallback(
+    (x: number, y: number) => {
+      const positions = letterPositionsRef.current;
+      positions.forEach((pos) => {
+        const dist = Math.sqrt(
+          Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2)
+        );
+        if (dist < 45) {
+          setSelectedIndices((prev) => {
+            if (prev.length > 0 && prev[prev.length - 1] === pos.index) return prev;
+            if (prev.length > 1 && prev[prev.length - 2] === pos.index) return prev;
+            if (!prev.includes(pos.index)) {
+              if (Platform.OS !== "web") {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              return [...prev, pos.index];
+            }
+            return prev;
+          });
+        }
+      });
+    },
+    []
+  );
+
+  // ─── PanResponder — all logic via refs, no stale closures ────────────────────
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+
+      onPanResponderGrant: (evt) => {
+        if (gameWonRef.current || !puzzleRef.current) return;
+        isTouching.current = true;
+        setSelectedIndices([]);
+        selectedIndicesRef.current = [];
+        setTouchTrail([]);
+
+        const { locationX, locationY } = evt.nativeEvent;
+        setTouchTrail([{ x: locationX, y: locationY }]);
+
+        // Check letter at start position
+        const positions = letterPositionsRef.current;
+        positions.forEach((pos) => {
+          const dist = Math.sqrt(
+            Math.pow(locationX - pos.x, 2) + Math.pow(locationY - pos.y, 2)
+          );
+          if (dist < 45) {
+            setSelectedIndices([pos.index]);
+            selectedIndicesRef.current = [pos.index];
+            if (Platform.OS !== "web") {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          }
+        });
+      },
+
+      onPanResponderMove: (evt) => {
+        if (!isTouching.current || gameWonRef.current || !puzzleRef.current) return;
+        const { locationX, locationY } = evt.nativeEvent;
+        setTouchTrail((prev) => [...prev, { x: locationX, y: locationY }]);
+
+        const positions = letterPositionsRef.current;
+        positions.forEach((pos) => {
+          const dist = Math.sqrt(
+            Math.pow(locationX - pos.x, 2) + Math.pow(locationY - pos.y, 2)
+          );
+          if (dist < 45) {
+            setSelectedIndices((prev) => {
+              if (prev.length > 0 && prev[prev.length - 1] === pos.index) return prev;
+              if (prev.length > 1 && prev[prev.length - 2] === pos.index) return prev;
+              if (!prev.includes(pos.index)) {
+                if (Platform.OS !== "web") {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                const next = [...prev, pos.index];
+                selectedIndicesRef.current = next;
+                return next;
+              }
+              return prev;
+            });
+          }
+        });
+      },
+
+      onPanResponderRelease: () => {
+        isTouching.current = false;
+        const puzz = puzzleRef.current;
+        const indices = selectedIndicesRef.current;
+
+        if (!puzz || indices.length === 0) {
+          setTouchTrail([]);
+          setSelectedIndices([]);
+          selectedIndicesRef.current = [];
+          return;
+        }
+
+        const attempt = indices
+          .map((i) => puzz.letters[i])
+          .join("")
+          .toUpperCase();
+
+        const result = checkWord(puzz, attempt);
+        const alreadyFound = foundWordsRef.current.includes(attempt);
+
+        if (result === "target" && !alreadyFound) {
+          // onTargetFound is called via setTimeout to let state settle
+          setTimeout(() => {
+            // Re-read refs inside timeout for latest values
+            const latestPuzz = puzzleRef.current;
+            const latestFound = foundWordsRef.current;
+            if (!latestPuzz) return;
+
+            if (Platform.OS !== "web") {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }
+
+            setFoundWords((prev) => {
+              const updated = [...prev, attempt];
+              foundWordsRef.current = updated;
+              return updated;
+            });
+
+            setGridData((prev) => {
+              const updated = prev.map((cell) =>
+                latestPuzz.targetWords[cell.wordId]?.word === attempt
+                  ? { ...cell, isFound: true }
+                  : cell
+              );
+              gridDataRef.current = updated;
+              return updated;
+            });
+
+            // Flash effect
+            setFlashWord(attempt);
+            flashAnim.setValue(0);
+            Animated.sequence([
+              Animated.timing(flashAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+              Animated.timing(flashAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+            ]).start(() => setFlashWord(null));
+
+            dispatch({ type: "QUEST_PROGRESS", questId: "q1", amount: 1 });
+
+            const allFound = latestPuzz.targetWords.every(
+              (tw) => tw.word === attempt || latestFound.includes(tw.word)
+            );
+
+            if (allFound) {
+              setGameWon(true);
+              gameWonRef.current = true;
+              setTimeout(() => {
+                dispatch({ type: "ADD_XP", amount: 150 });
+                dispatch({ type: "ADD_GOLD", amount: 100 });
+                dispatch({ type: "COMPLETE_CITY", cityId, stars: 3 });
+                setLevel((prev) => prev + 1);
+              }, 1200);
+            }
+          }, 0);
+        } else if (result === "bonus" && !alreadyFound) {
+          setTimeout(() => {
+            if (Platform.OS !== "web") {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            }
+            setFoundWords((prev) => [...prev, attempt]);
+            foundWordsRef.current = [...foundWordsRef.current, attempt];
+            dispatch({ type: "ADD_GOLD", amount: 20 });
+
+            setFlashWord(attempt);
+            flashAnim.setValue(0);
+            Animated.sequence([
+              Animated.timing(flashAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+              Animated.timing(flashAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+            ]).start(() => setFlashWord(null));
+          }, 0);
+        } else {
+          if (Platform.OS !== "web") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
+          Animated.sequence([
+            Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+            Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+            Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+            Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+          ]).start();
+        }
+
+        setTimeout(() => {
+          setTouchTrail([]);
+          setSelectedIndices([]);
+          selectedIndicesRef.current = [];
+        }, 300);
+      },
+    })
+  ).current;
+
+  // ─── Render trail ─────────────────────────────────────────────────────────────
   const renderTrail = () => {
     if (touchTrail.length < 2) return null;
 
@@ -270,6 +436,7 @@ export default function GameScreen() {
         />
         {selectedIndices.map((idx) => {
           const pos = letterPositions[idx];
+          if (!pos) return null;
           return (
             <Circle
               key={`circle-${idx}`}
@@ -288,12 +455,23 @@ export default function GameScreen() {
 
   if (!puzzle) return null;
 
+  const currentWord = selectedIndices
+    .map((i) => puzzle.letters[i])
+    .join("")
+    .toUpperCase();
+
   return (
     <ImageBackground source={{ uri: BG_URL }} style={styles.background}>
-      <ScreenContainer containerClassName="bg-transparent" edges={["top", "left", "right"]}>
+      <ScreenContainer
+        containerClassName="bg-transparent"
+        edges={["top", "left", "right"]}
+      >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.iconBtn}
+          >
             <IconSymbol name="chevron.left" size={28} color="white" />
           </TouchableOpacity>
           <View style={styles.levelBadge}>
@@ -304,9 +482,17 @@ export default function GameScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Grid */}
+        {/* Crossword Grid */}
         <View style={styles.gridArea}>
-          <Animated.View style={[styles.grid, { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] }]}>
+          <Animated.View
+            style={[
+              styles.grid,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateX: shakeAnim }],
+              },
+            ]}
+          >
             {gridData.map((cell) => (
               <View
                 key={cell.id}
@@ -316,7 +502,12 @@ export default function GameScreen() {
                   cell.isFound && styles.cellActive,
                 ]}
               >
-                <Text style={[styles.cellText, cell.isFound && styles.cellTextActive]}>
+                <Text
+                  style={[
+                    styles.cellText,
+                    cell.isFound && styles.cellTextActive,
+                  ]}
+                >
                   {cell.isFound ? cell.char : ""}
                 </Text>
               </View>
@@ -324,20 +515,27 @@ export default function GameScreen() {
           </Animated.View>
         </View>
 
-        {/* Preview */}
+        {/* Preview / Flash Word */}
         <View style={styles.previewArea}>
-          {selectedIndices.length > 0 && (
+          {flashWord ? (
+            <Animated.View
+              style={[
+                styles.previewBadge,
+                styles.flashBadge,
+                { opacity: flashAnim },
+              ]}
+            >
+              <Text style={styles.previewText}>{flashWord} ✓</Text>
+            </Animated.View>
+          ) : currentWord.length > 0 ? (
             <View style={styles.previewBadge}>
-              <Text style={styles.previewText}>
-                {selectedIndices.map((i) => puzzle.letters[i]).join("").toUpperCase()}
-              </Text>
+              <Text style={styles.previewText}>{currentWord}</Text>
             </View>
-          )}
+          ) : null}
         </View>
 
-        {/* Wheel Container */}
+        {/* Letter Wheel */}
         <View
-          ref={wheelRef}
           style={styles.wheelContainer}
           {...panResponder.panHandlers}
         >
@@ -346,6 +544,7 @@ export default function GameScreen() {
 
             {puzzle.letters.map((letter, index) => {
               const pos = letterPositions[index];
+              if (!pos) return null;
               const isSelected = selectedIndices.includes(index);
 
               return (
@@ -357,14 +556,23 @@ export default function GameScreen() {
                     {
                       left: pos.x - LETTER_SIZE / 2,
                       top: pos.y - LETTER_SIZE / 2,
-                      backgroundColor: isSelected ? "#00C8FF" : "rgba(255,255,255,0.95)",
-                      borderColor: isSelected ? "#00C8FF" : "rgba(255,255,255,0.3)",
+                      backgroundColor: isSelected
+                        ? "#00C8FF"
+                        : "rgba(255,255,255,0.95)",
+                      borderColor: isSelected
+                        ? "#00C8FF"
+                        : "rgba(255,255,255,0.3)",
                       borderWidth: 2,
                       transform: [{ scale: isSelected ? 1.35 : 1 }],
                     },
                   ]}
                 >
-                  <Text style={[styles.letterNodeText, { color: isSelected ? "white" : "#0F1E52" }]}>
+                  <Text
+                    style={[
+                      styles.letterNodeText,
+                      { color: isSelected ? "white" : "#0F1E52" },
+                    ]}
+                  >
                     {letter.toUpperCase()}
                   </Text>
                 </View>
@@ -373,8 +581,11 @@ export default function GameScreen() {
           </View>
         </View>
 
-        {/* Akrep Zeka Button */}
-        <TouchableOpacity style={styles.akrepFab} onPress={() => router.push("/lima")}>
+        {/* Akrep Zeka FAB */}
+        <TouchableOpacity
+          style={styles.akrepFab}
+          onPress={() => router.push("/lima")}
+        >
           <Text style={{ fontSize: 28 }}>🦂</Text>
         </TouchableOpacity>
       </ScreenContainer>
@@ -390,7 +601,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
   },
-  iconBtn: { width: 44, height: 44, justifyContent: "center", alignItems: "center" },
+  iconBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   levelBadge: {
     backgroundColor: "rgba(15, 30, 82, 0.6)",
     paddingHorizontal: 20,
@@ -399,8 +615,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.2)",
   },
-  levelText: { color: "white", fontSize: 18, fontWeight: "900", letterSpacing: 1 },
-
+  levelText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
   gridArea: { flex: 0.4, marginTop: 20 },
   grid: { flex: 1, position: "relative" },
   cell: {
@@ -422,10 +642,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
   },
-  cellText: { fontSize: 26, fontWeight: "900", color: "transparent" },
+  cellText: { fontSize: 22, fontWeight: "900", color: "transparent" },
   cellTextActive: { color: "#0F1E52" },
-
-  previewArea: { height: 50, alignItems: "center", justifyContent: "center" },
+  previewArea: { height: 56, alignItems: "center", justifyContent: "center" },
   previewBadge: {
     backgroundColor: "rgba(15, 30, 82, 0.85)",
     paddingHorizontal: 20,
@@ -434,8 +653,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#00C8FF",
   },
-  previewText: { color: "white", fontSize: 28, fontWeight: "900", letterSpacing: 4 },
-
+  flashBadge: {
+    borderColor: "#22C55E",
+    backgroundColor: "rgba(34, 197, 94, 0.25)",
+  },
+  previewText: {
+    color: "white",
+    fontSize: 26,
+    fontWeight: "900",
+    letterSpacing: 4,
+  },
   wheelContainer: {
     flex: 1,
     justifyContent: "center",
@@ -463,7 +690,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   letterNodeText: { fontSize: 28, fontWeight: "900" },
-
   akrepFab: {
     position: "absolute",
     bottom: 30,

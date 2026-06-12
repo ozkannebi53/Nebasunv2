@@ -18,7 +18,7 @@ export const appRouter = router({
     }),
   }),
 
-  // AKREP ZEKA AI Router - Gemini API Powered
+  // AKREP ZEKA AI Router — Gemini 1.5 Flash
   ai: router({
     chat: publicProcedure
       .input(
@@ -26,25 +26,17 @@ export const appRouter = router({
           messages: z.array(
             z.object({
               role: z.enum(["system", "user", "assistant"]),
-              content: z.string(),
+              content: z.string().max(4000),
             })
-          ),
+          ).max(20),
         })
       )
       .mutation(async ({ input }) => {
-        try {
-          // AKREP ZEKA'nın beyni: Gemini 1.5 Flash kullanılıyor
-          const content = await invokeGemini(input.messages);
-
-          return {
-            content: content || "AKREP ZEKA şu an derin düşüncelerde, lütfen tekrar dene. 🦂",
-          };
-        } catch (error) {
-          console.error("AKREP ZEKA Gemini Error:", error);
-          return {
-            content: "Bağlantımda bir sorun oluştu ama AKREP ZEKA her zaman burada. Lütfen tekrar dener misin? 🦂",
-          };
-        }
+        // invokeGemini artık hata fırlatmaz — her durumda string döner
+        const content = await invokeGemini(input.messages);
+        return {
+          content: content || "AKREP ZEKA şu an derin düşüncelerde, lütfen tekrar dene. 🦂",
+        };
       }),
   }),
 });
