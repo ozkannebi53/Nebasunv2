@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   Animated,
-  Alert,
   PanResponder,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -17,16 +16,16 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import * as Haptics from "expo-haptics";
 import { generatePuzzle, checkWord, type Puzzle } from "@/lib/word-engine";
-import Svg, { Path, Line } from "react-native-svg";
+import Svg, { Path, Line, Circle } from "react-native-svg";
 
 const { width, height } = Dimensions.get("window");
 
 const BACKGROUND_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
 
-// Referans fotoğraflara göre boyutlar
-const CIRCLE_SIZE = width * 0.75; // Çember genişliği
-const RADIUS = CIRCLE_SIZE * 0.38; // Harflerin dizileceği yarıçap
-const LETTER_SIZE = 54; // Harf dairesi boyutu
+// Referanslara göre optimize edilmiş boyutlar
+const CIRCLE_SIZE = width * 0.8; 
+const RADIUS = (CIRCLE_SIZE / 2) - 40; 
+const LETTER_SIZE = 60; 
 
 export default function GameScreen() {
   const router = useRouter();
@@ -42,13 +41,9 @@ export default function GameScreen() {
   const [score, setScore] = useState(0);
   
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // Çemberin ekran üzerindeki konumunu ölçmek için ref
-  const circleRef = useRef<View>(null);
-  const [circleLayout, setCircleLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
-
+  // Harf konumlarını önceden hesapla
   const letterPositions = useMemo(() => {
     if (!puzzle) return [];
     return puzzle.letters.map((_, index) => {
@@ -65,27 +60,23 @@ export default function GameScreen() {
     setPuzzle(newPuzzle);
     setFoundWords([]);
     setSelectedIndices([]);
-    
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, friction: 8, useNativeDriver: true }),
-    ]).start();
+    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
   }, [level, cityId]);
 
   const shake = () => {
     Animated.sequence([
       Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
       Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
     ]).start();
   };
 
+  // Dokunmatik algılama mantığı - Daha geniş alan (hitSlop mantığı)
   const handleTouch = (x: number, y: number) => {
     letterPositions.forEach((pos, index) => {
-      // Dokunmatik hassasiyetini artırmak için mesafeyi 35'e çıkardım
       const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
-      if (dist < 35 && !selectedIndices.includes(index)) {
+      // 45 birimlik geniş bir algılama alanı
+      if (dist < 45 && !selectedIndices.includes(index)) {
         if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setSelectedIndices(prev => [...prev, index]);
       }
@@ -107,16 +98,22 @@ export default function GameScreen() {
         setCurrentTouchPos({ x: locationX, y: locationY });
       },
       onPanResponderRelease: () => {
-        const attempt = selectedIndices.map(i => puzzle!.letters[i]).join("");
-        const result = checkWord(puzzle!, attempt);
-
-        if (result === "target" && !foundWords.includes(attempt)) {
-          if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setFoundWords(prev => [...prev, attempt]);
-          setScore(prev => prev + attempt.length * 10);
-        } else if (selectedIndices.length > 0) {
-          if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          shake();
+        // ÇÖKME KORUMASI: Boş kelime veya puzzle null kontrolü
+        if (puzzle && selectedIndices.length > 0) {
+          const attempt = selectedIndices.map(i => puzzle.letters[i]).join("");
+          try {
+            const result = checkWord(puzzle, attempt);
+            if (result === "target" && !foundWords.includes(attempt)) {
+              if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              setFoundWords(prev => [...prev, attempt]);
+              setScore(prev => prev + attempt.length * 10);
+            } else {
+              if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              shake();
+            }
+          } catch (e) {
+            console.error("CheckWord Error:", e);
+          }
         }
         setSelectedIndices([]);
         setCurrentTouchPos(null);
@@ -141,11 +138,11 @@ export default function GameScreen() {
         <Path
           d={d}
           stroke="#FF00FF"
-          strokeWidth="10"
+          strokeWidth="12"
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity="0.7"
+          opacity="0.8"
         />
         {currentTouchPos && selectedIndices.length > 0 && (
           <Line
@@ -154,9 +151,9 @@ export default function GameScreen() {
             x2={currentTouchPos.x}
             y2={currentTouchPos.y}
             stroke="#FF00FF"
-            strokeWidth="10"
+            strokeWidth="12"
             strokeLinecap="round"
-            opacity="0.5"
+            opacity="0.6"
           />
         )}
       </Svg>
@@ -173,19 +170,13 @@ export default function GameScreen() {
           </TouchableOpacity>
           <View style={styles.headerInfo}>
             <Text style={styles.levelText}>BÖLÜM {level}</Text>
-            <Text style={styles.scoreText}>SKOR: {score}</Text>
           </View>
-          <TouchableOpacity style={styles.settingsBtn}>
-            <IconSymbol name="gearshape.fill" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={{ width: 40 }} />
         </View>
 
         {/* Kelime Kutucukları */}
         <ScrollView contentContainerStyle={styles.wordsContainer} showsVerticalScrollIndicator={false}>
-          <Animated.View style={[
-            styles.wordsGrid, 
-            { opacity: fadeAnim, transform: [{ scale: scaleAnim }, { translateX: shakeAnim }] }
-          ]}>
+          <Animated.View style={[styles.wordsGrid, { opacity: fadeAnim, transform: [{ translateX: shakeAnim }] }]}>
             {puzzle.targetWords.map((wordObj, idx) => (
               <View key={idx} style={styles.wordRow}>
                 {wordObj.word.split("").map((char, charIdx) => (
@@ -209,11 +200,7 @@ export default function GameScreen() {
 
         {/* Harf Çemberi */}
         <View style={styles.circleContainer}>
-          <View 
-            style={styles.circle} 
-            {...panResponder.panHandlers}
-            onLayout={(e) => setCircleLayout(e.nativeEvent.layout)}
-          >
+          <View style={styles.circle} {...panResponder.panHandlers}>
             {renderPath()}
             {puzzle.letters.map((letter, index) => {
               const pos = letterPositions[index];
@@ -228,8 +215,10 @@ export default function GameScreen() {
                     {
                       left: pos.x - LETTER_SIZE / 2,
                       top: pos.y - LETTER_SIZE / 2,
-                      backgroundColor: isSelected ? "#FF00FF" : "rgba(255,255,255,0.95)",
-                      transform: [{ scale: isSelected ? 1.2 : 1 }],
+                      backgroundColor: isSelected ? "#FF00FF" : "rgba(255,255,255,0.98)",
+                      transform: [{ scale: isSelected ? 1.15 : 1 }],
+                      borderColor: isSelected ? "#FFFFFF" : "rgba(15, 30, 82, 0.1)",
+                      borderWidth: isSelected ? 3 : 0,
                     },
                   ]}
                 >
@@ -244,11 +233,9 @@ export default function GameScreen() {
 
         {/* Alt Butonlar */}
         <View style={styles.footerActions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setSelectedIndices([])}>
-            <IconSymbol name="arrow.counterclockwise" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => router.push("/lima")}>
             <Text style={{ fontSize: 24 }}>🦂</Text>
+            <Text style={styles.actionBtnLabel}>AKREP ZEKA</Text>
           </TouchableOpacity>
         </View>
       </ScreenContainer>
@@ -261,35 +248,33 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16 },
   backBtn: { width: 40, height: 40, justifyContent: "center" },
   headerInfo: { alignItems: "center" },
-  levelText: { color: "#FFFFFF", fontSize: 18, fontWeight: "900", letterSpacing: 2 },
-  scoreText: { color: "#FFD700", fontSize: 12, fontWeight: "700", marginTop: 2 },
-  settingsBtn: { width: 40, height: 40, alignItems: "flex-end", justifyContent: "center" },
+  levelText: { color: "#FFFFFF", fontSize: 22, fontWeight: "900", letterSpacing: 2 },
   
   wordsContainer: { paddingVertical: 20, alignItems: "center" },
   wordsGrid: { gap: 12 },
   wordRow: { flexDirection: "row", gap: 6, justifyContent: "center" },
   letterBox: {
-    width: 42, height: 42,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.3)",
+    width: 44, height: 44,
+    backgroundColor: "rgba(15, 30, 82, 0.4)",
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
   },
-  letterBoxFound: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF", elevation: 5 },
-  letterBoxText: { color: "#0F1E52", fontSize: 24, fontWeight: "900" },
+  letterBoxFound: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF" },
+  letterBoxText: { color: "#0F1E52", fontSize: 26, fontWeight: "900" },
 
-  currentWordContainer: { height: 50, justifyContent: "center", alignItems: "center", marginBottom: 10 },
-  currentWordText: { color: "#FFFFFF", fontSize: 32, fontWeight: "900", letterSpacing: 6, textShadowColor: "#000", textShadowRadius: 15 },
+  currentWordContainer: { height: 60, justifyContent: "center", alignItems: "center" },
+  currentWordText: { color: "#FFFFFF", fontSize: 36, fontWeight: "900", letterSpacing: 4, textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 10 },
 
-  circleContainer: { height: CIRCLE_SIZE + 40, justifyContent: "center", alignItems: "center" },
+  circleContainer: { height: CIRCLE_SIZE + 20, justifyContent: "center", alignItems: "center" },
   circle: {
     width: CIRCLE_SIZE, height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.15)",
   },
   letterCircle: {
     position: "absolute",
@@ -297,21 +282,20 @@ const styles = StyleSheet.create({
     borderRadius: LETTER_SIZE / 2,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 8,
     shadowColor: "#000",
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
   },
-  letterText: { fontSize: 26, fontWeight: "900" },
+  letterText: { fontSize: 28, fontWeight: "900" },
 
-  footerActions: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 40, paddingBottom: 30 },
+  footerActions: { alignItems: "center", paddingBottom: 40 },
   actionBtn: {
-    width: 56, height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(15, 30, 82, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 0, 255, 0.4)",
-  }
+    flexDirection: "row",
+    backgroundColor: "rgba(15, 30, 82, 0.8)",
+    paddingHorizontal: 20, paddingVertical: 12,
+    borderRadius: 30, alignItems: "center",
+    borderWidth: 1.5, borderColor: "#FF00FF",
+  },
+  actionBtnLabel: { color: "#FFFFFF", fontWeight: "900", marginLeft: 10, letterSpacing: 1 }
 });

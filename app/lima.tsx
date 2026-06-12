@@ -1,14 +1,13 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, KeyboardAvoidingView, Platform, Animated,
+  StyleSheet, KeyboardAvoidingView, Platform,
   ActivityIndicator, SafeAreaView
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { trpc } from "@/lib/trpc";
-import { AKREP_ZEKA_SYSTEM_PROMPT } from "@/lib/akrep-ai";
 import * as Haptics from "expo-haptics";
 
 interface Message {
@@ -22,7 +21,7 @@ export default function AkrepZekaScreen() {
   const [messages, setMessages] = useState<Message[]>([
     { 
       id: "0", 
-      text: "Merhaba! Ben AKREP ZEKA. Seninle her konuda sohbet edebilir, sorunlarını dinleyebilir ve sana yardımcı olabilirim. ChatGPT veya Claude gibi düşün; her şeyi sorabilirsin. 🦂", 
+      text: "Merhaba! Ben AKREP ZEKA. Gemini 1.5 Flash ile güçlendirildim. Seninle her konuda sohbet edebilirim. Sadece oyun değil, hayat, teknoloji veya sorunların hakkında da konuşabiliriz. 🦂", 
       from: "akrep" 
     },
   ]);
@@ -30,7 +29,6 @@ export default function AkrepZekaScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
   
-  // trpc mutation hook
   const chatMutation = trpc.ai.chat.useMutation();
 
   const sendMessage = async () => {
@@ -45,16 +43,14 @@ export default function AkrepZekaScreen() {
     setIsLoading(true);
 
     try {
-      // Sohbet geçmişini hazırla
-      const history = messages.map(m => ({
+      // Sohbet geçmişini Gemini formatına uygun hazırla
+      const history = messages.slice(-6).map(m => ({
         role: m.from === "user" ? "user" as const : "assistant" as const,
         content: m.text
       }));
 
-      // Backend'deki AKREP ZEKA'yı (gpt-4o) çağır
       const response = await chatMutation.mutateAsync({
         messages: [
-          { role: "system", content: AKREP_ZEKA_SYSTEM_PROMPT },
           ...history,
           { role: "user", content: text }
         ]
@@ -67,7 +63,6 @@ export default function AkrepZekaScreen() {
       };
       
       setMessages(prev => [...prev, akrepMsg]);
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
       console.error("AKREP ZEKA Error:", error);
       const errorMsg: Message = { 
@@ -78,9 +73,14 @@ export default function AkrepZekaScreen() {
       setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     }
   };
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [messages, isLoading]);
 
   return (
     <ScreenContainer containerClassName="bg-[#050A1E]" edges={["top", "left", "right"]}>
@@ -92,13 +92,13 @@ export default function AkrepZekaScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <IconSymbol name="arrow.left" size={24} color="#FFFFFF" />
+            <IconSymbol name="chevron.left" size={28} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>AKREP ZEKA</Text>
             <View style={styles.statusRow}>
               <View style={styles.onlineDot} />
-              <Text style={styles.statusText}>GPT-4o Gücüyle Aktif</Text>
+              <Text style={styles.statusText}>Gemini 1.5 Flash Aktif</Text>
             </View>
           </View>
           <Text style={styles.akrepEmojiHeader}>🦂</Text>
@@ -112,13 +112,11 @@ export default function AkrepZekaScreen() {
           contentContainerStyle={styles.messageList}
           renderItem={({ item }) => (
             <View style={[styles.bubbleContainer, item.from === "user" ? styles.userContainer : styles.akrepContainer]}>
-              {item.from === "akrep" && <Text style={styles.bubbleEmoji}>🦂</Text>}
               <View style={[styles.bubble, item.from === "user" ? styles.userBubble : styles.akrepBubble]}>
                 <Text style={styles.bubbleText}>{item.text}</Text>
               </View>
             </View>
           )}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         />
 
         {/* Input Area */}
@@ -127,11 +125,10 @@ export default function AkrepZekaScreen() {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="AKREP ZEKA'ya her şeyi sorabilirsin..."
+            placeholder="Mesajınızı yazın..."
             placeholderTextColor="#8899BB"
             multiline
-            maxHeight={120}
-            autoCapitalize="sentences"
+            maxHeight={100}
           />
           <TouchableOpacity
             style={[styles.sendBtn, (!input.trim() || isLoading) && styles.sendBtnDisabled]}
@@ -165,11 +162,10 @@ const styles = StyleSheet.create({
   akrepEmojiHeader: { fontSize: 32 },
   
   messageList: { padding: 20, paddingBottom: 30 },
-  bubbleContainer: { flexDirection: "row", marginBottom: 20, alignItems: "flex-end" },
+  bubbleContainer: { flexDirection: "row", marginBottom: 15 },
   userContainer: { justifyContent: "flex-end" },
   akrepContainer: { justifyContent: "flex-start" },
-  bubbleEmoji: { fontSize: 24, marginRight: 8, marginBottom: 5 },
-  bubble: { maxWidth: "80%", padding: 14, borderRadius: 20 },
+  bubble: { maxWidth: "85%", padding: 14, borderRadius: 18 },
   userBubble: { backgroundColor: "#5A2EFF", borderBottomRightRadius: 4 },
   akrepBubble: { backgroundColor: "#0F1E52", borderWidth: 1, borderColor: "#1E2F6E", borderBottomLeftRadius: 4 },
   bubbleText: { color: "#FFFFFF", fontSize: 16, lineHeight: 22 },
@@ -181,11 +177,11 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1, backgroundColor: "#0B163F", borderRadius: 24,
-    paddingHorizontal: 18, paddingVertical: 12, color: "#FFFFFF",
+    paddingHorizontal: 18, paddingVertical: 10, color: "#FFFFFF",
     fontSize: 16, borderWidth: 1, borderColor: "#1E2F6E",
   },
   sendBtn: {
-    width: 50, height: 50, borderRadius: 25,
+    width: 48, height: 48, borderRadius: 24,
     backgroundColor: "#5A2EFF", alignItems: "center", justifyContent: "center",
   },
   sendBtnDisabled: { backgroundColor: "#1E2F6E", opacity: 0.6 },
