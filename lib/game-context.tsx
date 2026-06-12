@@ -7,6 +7,9 @@ type Action =
   | { type: "ADD_XP"; amount: number }
   | { type: "ADD_GOLD"; amount: number }
   | { type: "ADD_GEMS"; amount: number }
+  | { type: "ADD_HINTS"; amount: number }
+  | { type: "USE_HINTS"; amount: number }
+  | { type: "BUY_HINTS"; gemsSpent: number }
   | { type: "COMBO_INC" }
   | { type: "COMBO_RESET" }
   | { type: "SET_ENERGY"; energy: number }
@@ -23,6 +26,13 @@ function reducer(state: PlayerState, action: Action): PlayerState {
     case "ADD_XP": return addXP(state, action.amount);
     case "ADD_GOLD": return addGold(state, action.amount);
     case "ADD_GEMS": return { ...state, gems: state.gems + action.amount };
+    case "ADD_HINTS": return { ...state, hints: (state.hints || 0) + action.amount };
+    case "USE_HINTS": return { ...state, hints: Math.max(0, (state.hints || 0) - action.amount) };
+    case "BUY_HINTS":
+      if (state.gems >= action.gemsSpent) {
+        return { ...state, gems: state.gems - action.gemsSpent, hints: (state.hints || 0) + 10 };
+      }
+      return state;
     case "COMBO_INC": return incrementCombo(state);
     case "COMBO_RESET": return resetCombo(state);
     case "SET_ENERGY": return { ...state, energy: action.energy };
@@ -65,7 +75,7 @@ function reducer(state: PlayerState, action: Action): PlayerState {
 const defaultState: PlayerState = {
   name: "Akrep Savaşçısı",
   level: 1, xp: 0, xpToNext: 1000,
-  gold: 500, gems: 50,
+  gold: 500, gems: 50, hints: 3,
   energy: 50, maxEnergy: 50,
   league: "Bronz", leaguePoints: 0,
   currentCity: "istanbul", currentCityIndex: 0,
