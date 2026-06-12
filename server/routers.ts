@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { invokeGemini } from "./_core/gemini";
+import { invokeAI, formatAIResponse } from "./_core/ai-service";
 
 export const appRouter = router({
   system: systemRouter,
@@ -18,7 +18,7 @@ export const appRouter = router({
     }),
   }),
 
-  // AKREP ZEKA AI Router — Gemini 1.5 Flash
+  // LIMA AI Router — OpenAI uyumlu stabil AI
   ai: router({
     chat: publicProcedure
       .input(
@@ -32,11 +32,19 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
-        // invokeGemini artık hata fırlatmaz — her durumda string döner
-        const content = await invokeGemini(input.messages);
-        return {
-          content: content || "AKREP ZEKA şu an derin düşüncelerde, lütfen tekrar dene. 🦂",
-        };
+        try {
+          const content = await invokeAI(input.messages);
+          return {
+            content: formatAIResponse(content),
+            error: null,
+          };
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : "Bilinmeyen hata";
+          return {
+            content: null,
+            error: errorMsg,
+          };
+        }
       }),
   }),
 });

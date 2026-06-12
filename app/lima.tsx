@@ -94,7 +94,7 @@ export default function AkrepZekaScreen() {
       Keyboard.dismiss();
 
       try {
-        // Son 10 mesajı geçmiş olarak gönder (system mesajlarını filtrele)
+        // Son 10 mesajı geçmiş olarak gönder (error mesajlarını filtrele)
         const history = messages
           .slice(-10)
           .filter((m) => !m.isError)
@@ -107,17 +107,22 @@ export default function AkrepZekaScreen() {
           messages: [...history, { role: "user", content: text }],
         });
 
-        if (response && response.content) {
+        if (response?.error) {
+          addAkrepMessage(`❌ ${response.error}`, true);
+        } else if (response?.content) {
           addAkrepMessage(response.content);
         } else {
           addAkrepMessage(
-            "Derin düşüncelere daldım, ama bir cevap bulamadım. 🦂",
+            "LIMA'dan yanıt alınamadı. Lütfen tekrar deneyin. 🦂",
             true
           );
         }
       } catch (error) {
-        console.error("AKREP ZEKA Chat Error:", error);
-        // onError callback zaten çalışacak, burada tekrar ekleme
+        console.error("LIMA Chat Error:", error);
+        addAkrepMessage(
+          "Bağlantı hatası. Lütfen tekrar deneyin. 🦂",
+          true
+        );
       }
     },
     [input, isTyping, messages, chatMutation, addAkrepMessage]

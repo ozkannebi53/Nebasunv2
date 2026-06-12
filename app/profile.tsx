@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   ImageBackground,
-  Dimensions,
   Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -14,7 +13,6 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useGame } from "@/lib/game-context";
 
-const { width } = Dimensions.get("window");
 const BG_URL =
   "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
 
@@ -24,9 +22,16 @@ export default function ProfileScreen() {
   const [showShop, setShowShop] = useState(false);
 
   const handleBuyHints = () => {
-    dispatch({ type: "BUY_HINTS", gemsSpent: 50 });
-    setShowShop(false);
+    if (state.gems >= 50) {
+      dispatch({ type: "BUY_HINTS", gemsSpent: 50 });
+      setShowShop(false);
+    }
   };
+
+  // Güvenli veri erişimi
+  const quests = state.quests || [];
+  const leaguePoints = state.leaguePoints || 0;
+  const leagueRank = state.leagueRank || 1000;
 
   return (
     <ImageBackground source={{ uri: BG_URL }} style={styles.background}>
@@ -50,13 +55,13 @@ export default function ProfileScreen() {
           {/* Player Card */}
           <View style={styles.playerCard}>
             <Text style={styles.playerAvatar}>🦂</Text>
-            <Text style={styles.playerName}>{state.name}</Text>
+            <Text style={styles.playerName}>{state.name || "Akrep Savaşçısı"}</Text>
             <Text style={styles.playerLevel}>Seviye {state.level}</Text>
             <View style={styles.xpBar}>
               <View
                 style={[
                   styles.xpFill,
-                  { width: `${(state.xp / 1000) * 100}%` },
+                  { width: `${Math.min((state.xp / 1000) * 100, 100)}%` },
                 ]}
               />
             </View>
@@ -85,47 +90,49 @@ export default function ProfileScreen() {
             <View style={styles.statCard}>
               <Text style={styles.statIcon}>⭐</Text>
               <Text style={styles.statTitle}>Lig Puanı</Text>
-              <Text style={styles.statValue}>{state.leaguePoints || 0}</Text>
+              <Text style={styles.statValue}>{leaguePoints}</Text>
             </View>
           </View>
 
           {/* Quests Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📋 Görevler</Text>
-            {state.quests?.map((quest) => (
-              <View key={quest.id} style={styles.questCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.questTitle}>{quest.title}</Text>
-                  <View style={styles.questProgressBar}>
-                    <View
-                      style={[
-                        styles.questProgressFill,
-                        {
-                          width: `${(quest.progress / quest.target) * 100}%`,
-                          backgroundColor: quest.completed ? "#22C55E" : "#00C8FF",
-                        },
-                      ]}
-                    />
+          {quests.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>📋 Görevler</Text>
+              {quests.map((quest) => (
+                <View key={quest.id} style={styles.questCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.questTitle}>{quest.title}</Text>
+                    <View style={styles.questProgressBar}>
+                      <View
+                        style={[
+                          styles.questProgressFill,
+                          {
+                            width: `${Math.min((quest.progress / quest.target) * 100, 100)}%`,
+                            backgroundColor: quest.completed ? "#22C55E" : "#00C8FF",
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.questProgress}>
+                      {quest.progress} / {quest.target}
+                    </Text>
                   </View>
-                  <Text style={styles.questProgress}>
-                    {quest.progress} / {quest.target}
-                  </Text>
+                  <Text style={styles.questReward}>+{quest.reward}</Text>
                 </View>
-                <Text style={styles.questReward}>+{quest.reward}</Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
 
           {/* League Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🏆 Haftalık Lig</Text>
             <View style={styles.leagueCard}>
               <View style={styles.leagueRank}>
-                <Text style={styles.leagueRankNumber}>#{state.leagueRank || 1000}</Text>
+                <Text style={styles.leagueRankNumber}>#{leagueRank}</Text>
                 <Text style={styles.leagueRankLabel}>Sıralama</Text>
               </View>
               <View style={styles.leaguePoints}>
-                <Text style={styles.leaguePointsNumber}>{state.leaguePoints || 0}</Text>
+                <Text style={styles.leaguePointsNumber}>{leaguePoints}</Text>
                 <Text style={styles.leaguePointsLabel}>Puan</Text>
               </View>
               <Text style={styles.leagueReset}>Hafta Sonu Sıfırlanır</Text>
