@@ -15,7 +15,6 @@ const { width } = Dimensions.get("window");
 const CARD_W = (width - 48) / 2;
 const BG_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
 
-// ─── Header ──────────────────────────────────────────────────────────────────
 function Header() {
   const { state } = useGame();
   const leagueColor = getLeagueColor(state.league);
@@ -42,7 +41,6 @@ function Header() {
   );
 }
 
-// ─── City Card ───────────────────────────────────────────────────────────────
 function CityCard({ city, index, onPress }: { city: City; index: number; onPress: () => void }) {
   const isLocked = index > 0 && !city.completed;
   return (
@@ -81,33 +79,35 @@ export default function AdventureScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
           <Header />
 
-          {/* AI Lima Card */}
+          {/* AKREP ZEKA Gemini Card */}
           <TouchableOpacity
-            style={styles.limaCard}
+            style={styles.akrepCard}
             onPress={() => (router as any).push("/lima")}
             activeOpacity={0.85}
           >
-            <View style={styles.limaContent}>
-              <Text style={styles.limaEmoji}>🦂</Text>
-              <View style={{ flex: 1, marginLeft: 15 }}>
-                <Text style={styles.limaTitle}>Lima AI (Llama 3.2)</Text>
-                <Text style={styles.limaSub}>Kelime anlamlarını ve ipuçlarını sor!</Text>
+            <View style={styles.akrepContent}>
+              <View style={styles.akrepIconBg}>
+                <Text style={styles.akrepEmoji}>🦂</Text>
               </View>
-              <IconSymbol name="chevron.right" size={20} color="#FFFFFF" />
+              <View style={{ flex: 1, marginLeft: 15 }}>
+                <Text style={styles.akrepTitle}>AKREP ZEKA</Text>
+                <Text style={styles.akrepSub}>Gemini 1.5 Flash ile sınırsız sohbet!</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color="#FF00FF" />
             </View>
           </TouchableOpacity>
 
-          {/* Continue Button */}
+          {/* Play Button */}
           <TouchableOpacity
-            style={styles.continueBtn}
+            style={styles.playBtn}
             onPress={() => (router as any).push({ pathname: "/game", params: { cityId: state.currentCity, level: "1" } })}
             activeOpacity={0.85}
           >
-            <Text style={styles.continueBtnText}>OYUNA BAŞLA</Text>
+            <Text style={styles.playBtnText}>OYUNA BAŞLA</Text>
           </TouchableOpacity>
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Şehirler</Text>
+            <Text style={styles.sectionTitle}>Bölgeler</Text>
           </View>
 
           <FlatList
@@ -130,10 +130,10 @@ export default function AdventureScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    backgroundColor: "rgba(15, 30, 82, 0.7)",
+    backgroundColor: "rgba(15, 30, 82, 0.75)",
     marginHorizontal: 16, marginTop: 12,
     borderRadius: 20, padding: 16,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.15)",
   },
   avatarRow: { flexDirection: "row", alignItems: "center" },
   avatar: {
@@ -143,48 +143,50 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   avatarEmoji: { fontSize: 24 },
-  playerName: { color: "#FFFFFF", fontWeight: "800", fontSize: 16, marginBottom: 4 },
+  playerName: { color: "#FFFFFF", fontWeight: "900", fontSize: 16, marginBottom: 4 },
   xpBar: { height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden", marginBottom: 4 },
   xpFill: { height: "100%", backgroundColor: "#5A2EFF" },
-  levelText: { color: "#8899BB", fontSize: 10, fontWeight: "600" },
+  levelText: { color: "#8899BB", fontSize: 10, fontWeight: "700" },
   leagueBadge: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
-  leagueText: { fontSize: 10, fontWeight: "800" },
+  leagueText: { fontSize: 10, fontWeight: "900" },
   
-  limaCard: {
+  akrepCard: {
     marginHorizontal: 16, marginTop: 16,
-    backgroundColor: "rgba(90, 46, 255, 0.3)",
-    borderRadius: 20, padding: 16,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(15, 30, 82, 0.8)",
+    borderRadius: 24, padding: 16,
+    borderWidth: 1.5, borderColor: "rgba(255, 0, 255, 0.3)",
+    shadowColor: "#FF00FF", shadowOpacity: 0.2, shadowRadius: 10, elevation: 5,
   },
-  limaContent: { flexDirection: "row", alignItems: "center" },
-  limaEmoji: { fontSize: 32 },
-  limaTitle: { color: "#FFFFFF", fontWeight: "800", fontSize: 16 },
-  limaSub: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 2 },
+  akrepContent: { flexDirection: "row", alignItems: "center" },
+  akrepIconBg: { width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(255, 0, 255, 0.1)", alignItems: "center", justifyContent: "center" },
+  akrepEmoji: { fontSize: 32 },
+  akrepTitle: { color: "#FFFFFF", fontWeight: "900", fontSize: 18, letterSpacing: 1 },
+  akrepSub: { color: "rgba(255, 255, 255, 0.6)", fontSize: 12, marginTop: 2 },
 
-  continueBtn: {
+  playBtn: {
     marginHorizontal: 16, marginTop: 16,
-    backgroundColor: "#FFFFFF", borderRadius: 20, paddingVertical: 18,
+    backgroundColor: "#FF00FF", borderRadius: 20, paddingVertical: 18,
     alignItems: "center",
-    shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
+    shadowColor: "#FF00FF", shadowOpacity: 0.4, shadowRadius: 15, elevation: 8,
   },
-  continueBtnText: { color: "#0F1E52", fontSize: 18, fontWeight: "900", letterSpacing: 2 },
+  playBtnText: { color: "#FFFFFF", fontSize: 18, fontWeight: "900", letterSpacing: 2 },
 
   sectionHeader: { marginHorizontal: 16, marginTop: 24, marginBottom: 12 },
-  sectionTitle: { color: "#FFFFFF", fontSize: 20, fontWeight: "900", letterSpacing: 1 },
+  sectionTitle: { color: "#FFFFFF", fontSize: 22, fontWeight: "900", letterSpacing: 1 },
 
   cityCard: {
-    width: CARD_W, backgroundColor: "rgba(15, 30, 82, 0.6)",
-    borderRadius: 20, padding: 16,
+    width: CARD_W, backgroundColor: "rgba(15, 30, 82, 0.65)",
+    borderRadius: 24, padding: 16,
     alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
     overflow: "hidden",
   },
   cityCardLocked: { opacity: 0.6 },
-  cityEmoji: { fontSize: 40, marginBottom: 8 },
-  cityName: { color: "#FFFFFF", fontWeight: "800", fontSize: 14 },
-  cityCountry: { color: "rgba(255,255,255,0.5)", fontSize: 10, marginTop: 2 },
+  cityEmoji: { fontSize: 44, marginBottom: 8 },
+  cityName: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
+  cityCountry: { color: "rgba(255,255,255,0.5)", fontSize: 11, marginTop: 2 },
   lockOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     alignItems: "center", justifyContent: "center",
   },
 });

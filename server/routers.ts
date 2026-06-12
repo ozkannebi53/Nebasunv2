@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { invokeLLM } from "./_core/llm";
+import { invokeGemini } from "./_core/gemini";
 
 export const appRouter = router({
   system: systemRouter,
@@ -18,7 +18,7 @@ export const appRouter = router({
     }),
   }),
 
-  // AKREP ZEKA AI Router
+  // AKREP ZEKA AI Router - Gemini API Powered
   ai: router({
     chat: publicProcedure
       .input(
@@ -33,31 +33,17 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         try {
-          // AKREP ZEKA'nın beyni: En güçlü model gpt-4o kullanılıyor
-          const result = await invokeLLM({
-            model: "gpt-4o",
-            messages: input.messages,
-            maxTokens: 1000,
-          });
-
-          let content = "";
-          const messageContent = result.choices[0].message.content;
-          
-          if (typeof messageContent === 'string') {
-            content = messageContent;
-          } else if (Array.isArray(messageContent)) {
-            content = messageContent
-              .filter(part => 'type' in part && part.type === 'text')
-              .map(part => (part as any).text)
-              .join("");
-          }
+          // AKREP ZEKA'nın beyni: Gemini 1.5 Flash kullanılıyor
+          const content = await invokeGemini(input.messages);
 
           return {
-            content: content || "AKREP ZEKA şu an yanıt veremiyor, lütfen tekrar dene. 🦂",
+            content: content || "AKREP ZEKA şu an derin düşüncelerde, lütfen tekrar dene. 🦂",
           };
         } catch (error) {
-          console.error("AKREP ZEKA AI Error:", error);
-          throw new Error("AKREP ZEKA bağlantısında bir sorun oluştu.");
+          console.error("AKREP ZEKA Gemini Error:", error);
+          return {
+            content: "Bağlantımda bir sorun oluştu ama AKREP ZEKA her zaman burada. Lütfen tekrar dener misin? 🦂",
+          };
         }
       }),
   }),

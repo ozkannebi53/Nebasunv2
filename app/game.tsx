@@ -17,16 +17,16 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import * as Haptics from "expo-haptics";
 import { generatePuzzle, checkWord, type Puzzle } from "@/lib/word-engine";
-import Svg, { Path, Circle, Line } from "react-native-svg";
+import Svg, { Path, Line } from "react-native-svg";
 
 const { width, height } = Dimensions.get("window");
 
-// Animasyonlu doğa arka planı
 const BACKGROUND_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
 
-const CIRCLE_SIZE = 280;
-const LETTER_CIRCLE_SIZE = 56;
-const RADIUS = 100;
+// Referans fotoğraflara göre boyutlar
+const CIRCLE_SIZE = width * 0.75; // Çember genişliği
+const RADIUS = CIRCLE_SIZE * 0.38; // Harflerin dizileceği yarıçap
+const LETTER_SIZE = 54; // Harf dairesi boyutu
 
 export default function GameScreen() {
   const router = useRouter();
@@ -41,12 +41,14 @@ export default function GameScreen() {
   const [currentTouchPos, setCurrentTouchPos] = useState<{ x: number; y: number } | null>(null);
   const [score, setScore] = useState(0);
   
-  // Animasyonlar
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // Harf koordinatlarını hesapla
+  // Çemberin ekran üzerindeki konumunu ölçmek için ref
+  const circleRef = useRef<View>(null);
+  const [circleLayout, setCircleLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
+
   const letterPositions = useMemo(() => {
     if (!puzzle) return [];
     return puzzle.letters.map((_, index) => {
@@ -70,7 +72,6 @@ export default function GameScreen() {
     ]).start();
   }, [level, cityId]);
 
-  // Titreme animasyonu (Hatalı kelime için)
   const shake = () => {
     Animated.sequence([
       Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
@@ -80,6 +81,17 @@ export default function GameScreen() {
     ]).start();
   };
 
+  const handleTouch = (x: number, y: number) => {
+    letterPositions.forEach((pos, index) => {
+      // Dokunmatik hassasiyetini artırmak için mesafeyi 35'e çıkardım
+      const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+      if (dist < 35 && !selectedIndices.includes(index)) {
+        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setSelectedIndices(prev => [...prev, index]);
+      }
+    });
+  };
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -87,6 +99,7 @@ export default function GameScreen() {
       onPanResponderGrant: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
         handleTouch(locationX, locationY);
+        setCurrentTouchPos({ x: locationX, y: locationY });
       },
       onPanResponderMove: (evt) => {
         const { locationX, locationY } = evt.nativeEvent;
@@ -94,43 +107,25 @@ export default function GameScreen() {
         setCurrentTouchPos({ x: locationX, y: locationY });
       },
       onPanResponderRelease: () => {
-        handleTouchEnd();
+        const attempt = selectedIndices.map(i => puzzle!.letters[i]).join("");
+        const result = checkWord(puzzle!, attempt);
+
+        if (result === "target" && !foundWords.includes(attempt)) {
+          if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          setFoundWords(prev => [...prev, attempt]);
+          setScore(prev => prev + attempt.length * 10);
+        } else if (selectedIndices.length > 0) {
+          if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          shake();
+        }
+        setSelectedIndices([]);
         setCurrentTouchPos(null);
       },
     })
   ).current;
 
-  const handleTouch = (x: number, y: number) => {
-    letterPositions.forEach((pos, index) => {
-      const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
-      if (dist < 30 && !selectedIndices.includes(index)) {
-        if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setSelectedIndices(prev => [...prev, index]);
-      }
-    });
-  };
-
-  const handleTouchEnd = () => {
-    if (selectedIndices.length === 0) return;
-
-    const attempt = selectedIndices.map(i => puzzle!.letters[i]).join("");
-    const result = checkWord(puzzle!, attempt);
-
-    if (result === "target" && !foundWords.includes(attempt)) {
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setFoundWords(prev => [...prev, attempt]);
-      setScore(prev => prev + attempt.length * 10);
-      setSelectedIndices([]);
-    } else {
-      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      shake();
-      setSelectedIndices([]);
-    }
-  };
-
   if (!puzzle) return null;
 
-  // Şerit Path'ini oluştur
   const renderPath = () => {
     if (selectedIndices.length === 0) return null;
     
@@ -142,15 +137,15 @@ export default function GameScreen() {
     });
 
     return (
-      <Svg style={StyleSheet.absoluteFill}>
+      <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
         <Path
           d={d}
-          stroke="#FF00FF" // Pembe şerit
-          strokeWidth="8"
+          stroke="#FF00FF"
+          strokeWidth="10"
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity="0.6"
+          opacity="0.7"
         />
         {currentTouchPos && selectedIndices.length > 0 && (
           <Line
@@ -159,8 +154,9 @@ export default function GameScreen() {
             x2={currentTouchPos.x}
             y2={currentTouchPos.y}
             stroke="#FF00FF"
-            strokeWidth="8"
-            opacity="0.4"
+            strokeWidth="10"
+            strokeLinecap="round"
+            opacity="0.5"
           />
         )}
       </Svg>
@@ -211,9 +207,13 @@ export default function GameScreen() {
           </Text>
         </View>
 
-        {/* Harf Çemberi ve Şerit */}
+        {/* Harf Çemberi */}
         <View style={styles.circleContainer}>
-          <View style={styles.circle} {...panResponder.panHandlers}>
+          <View 
+            style={styles.circle} 
+            {...panResponder.panHandlers}
+            onLayout={(e) => setCircleLayout(e.nativeEvent.layout)}
+          >
             {renderPath()}
             {puzzle.letters.map((letter, index) => {
               const pos = letterPositions[index];
@@ -222,12 +222,14 @@ export default function GameScreen() {
               return (
                 <View
                   key={index}
+                  pointerEvents="none"
                   style={[
                     styles.letterCircle,
                     {
-                      left: pos.x - LETTER_CIRCLE_SIZE / 2,
-                      top: pos.y - LETTER_CIRCLE_SIZE / 2,
+                      left: pos.x - LETTER_SIZE / 2,
+                      top: pos.y - LETTER_SIZE / 2,
                       backgroundColor: isSelected ? "#FF00FF" : "rgba(255,255,255,0.95)",
+                      transform: [{ scale: isSelected ? 1.2 : 1 }],
                     },
                   ]}
                 >
@@ -267,7 +269,7 @@ const styles = StyleSheet.create({
   wordsGrid: { gap: 12 },
   wordRow: { flexDirection: "row", gap: 6, justifyContent: "center" },
   letterBox: {
-    width: 44, height: 44,
+    width: 42, height: 42,
     backgroundColor: "rgba(255,255,255,0.15)",
     borderRadius: 10,
     borderWidth: 1.5,
@@ -281,7 +283,7 @@ const styles = StyleSheet.create({
   currentWordContainer: { height: 50, justifyContent: "center", alignItems: "center", marginBottom: 10 },
   currentWordText: { color: "#FFFFFF", fontSize: 32, fontWeight: "900", letterSpacing: 6, textShadowColor: "#000", textShadowRadius: 15 },
 
-  circleContainer: { height: 320, justifyContent: "center", alignItems: "center" },
+  circleContainer: { height: CIRCLE_SIZE + 40, justifyContent: "center", alignItems: "center" },
   circle: {
     width: CIRCLE_SIZE, height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
@@ -291,8 +293,8 @@ const styles = StyleSheet.create({
   },
   letterCircle: {
     position: "absolute",
-    width: LETTER_CIRCLE_SIZE, height: LETTER_CIRCLE_SIZE,
-    borderRadius: LETTER_CIRCLE_SIZE / 2,
+    width: LETTER_SIZE, height: LETTER_SIZE,
+    borderRadius: LETTER_SIZE / 2,
     justifyContent: "center",
     alignItems: "center",
     elevation: 8,
@@ -300,7 +302,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 6,
   },
-  letterText: { fontSize: 28, fontWeight: "900" },
+  letterText: { fontSize: 26, fontWeight: "900" },
 
   footerActions: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 40, paddingBottom: 30 },
   actionBtn: {
