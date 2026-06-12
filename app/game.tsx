@@ -25,12 +25,12 @@ const BG_URL =
 const CIRCLE_SIZE = width * 0.75;
 const RADIUS = CIRCLE_SIZE / 2 - 50;
 const LETTER_SIZE = 56;
-const GRID_SIZE = 44;
+const CELL_SIZE = 40;
 
 interface GridCell {
   id: string;
-  x: number;
-  y: number;
+  row: number;
+  col: number;
   char: string;
   isFound: boolean;
   wordId: number;
@@ -71,11 +71,21 @@ export default function GameScreen() {
   const gridDataRef = useRef<GridCell[]>([]);
 
   // Keep refs in sync with state
-  useEffect(() => { puzzleRef.current = puzzle; }, [puzzle]);
-  useEffect(() => { selectedIndicesRef.current = selectedIndices; }, [selectedIndices]);
-  useEffect(() => { foundWordsRef.current = foundWords; }, [foundWords]);
-  useEffect(() => { gameWonRef.current = gameWon; }, [gameWon]);
-  useEffect(() => { gridDataRef.current = gridData; }, [gridData]);
+  useEffect(() => {
+    puzzleRef.current = puzzle;
+  }, [puzzle]);
+  useEffect(() => {
+    selectedIndicesRef.current = selectedIndices;
+  }, [selectedIndices]);
+  useEffect(() => {
+    foundWordsRef.current = foundWords;
+  }, [foundWords]);
+  useEffect(() => {
+    gameWonRef.current = gameWon;
+  }, [gameWon]);
+  useEffect(() => {
+    gridDataRef.current = gridData;
+  }, [gridData]);
 
   const letterPositions = useMemo(() => {
     if (!puzzle) return [];
@@ -88,31 +98,47 @@ export default function GameScreen() {
   }, [puzzle]);
 
   const letterPositionsRef = useRef(letterPositions);
-  useEffect(() => { letterPositionsRef.current = letterPositions; }, [letterPositions]);
+  useEffect(() => {
+    letterPositionsRef.current = letterPositions;
+  }, [letterPositions]);
 
-  // ─── Initialize grid ─────────────────────────────────────────────────────────
+  // ─── Initialize grid from puzzle gridPos ──────────────────────────────────────
   useEffect(() => {
     if (!puzzle) return;
 
     const newGrid: GridCell[] = [];
-    let startY = 40;
 
     puzzle.targetWords.forEach((tw, wordIdx) => {
-      const wordLen = tw.word.length;
-      const totalWidth = wordLen * (GRID_SIZE + 6);
-      const startX = (width - totalWidth) / 2;
+      if (!tw.gridPos) return;
+
+      const { row, col, direction } = tw.gridPos;
 
       tw.word.split("").forEach((char, charIdx) => {
-        newGrid.push({
-          id: `${wordIdx}-${charIdx}`,
-          x: startX + charIdx * (GRID_SIZE + 6),
-          y: startY,
-          char: char.toUpperCase(),
-          isFound: false,
-          wordId: wordIdx,
-        });
+        const cellRow = direction === "vertical" ? row + charIdx : row;
+        const cellCol = direction === "vertical" ? col : col + charIdx;
+
+        // Aynı hücre zaten varsa, güncelleştirme (kesişme noktası)
+        const existingIdx = newGrid.findIndex(
+          (c) => c.row === cellRow && c.col === cellCol
+        );
+
+        if (existingIdx >= 0) {
+          // Kesişme noktası — zaten var
+          newGrid[existingIdx] = {
+            ...newGrid[existingIdx],
+            wordId: wordIdx,
+          };
+        } else {
+          newGrid.push({
+            id: `${wordIdx}-${charIdx}`,
+            row: cellRow,
+            col: cellCol,
+            char: char.toUpperCase(),
+            isFound: false,
+            wordId: wordIdx,
+          });
+        }
       });
-      startY += GRID_SIZE + 18;
     });
 
     setGridData(newGrid);
@@ -134,117 +160,28 @@ export default function GameScreen() {
     fadeAnim.setValue(0);
   }, [level, cityId]);
 
-  // ─── Flash animation ─────────────────────────────────────────────────────────
-  const triggerFlash = useCallback((word: string) => {
-    setFlashWord(word);
-    flashAnim.setValue(0);
-    Animated.sequence([
-      Animated.timing(flashAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-      Animated.timing(flashAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
-    ]).start(() => setFlashWord(null));
-  }, []);
-
-  // ─── Shake animation ─────────────────────────────────────────────────────────
-  const shake = useCallback(() => {
-    Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-    ]).start();
-  }, []);
-
-  // ─── Word found handlers ──────────────────────────────────────────────────────
-  const onTargetFound = useCallback(
-    (word: string) => {
-      if (Platform.OS !== "web") {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-
-      triggerFlash(word);
-
-      setFoundWords((prev) => {
-        const updated = [...prev, word];
-        foundWordsRef.current = updated;
-        return updated;
-      });
-
-      dispatch({ type: "QUEST_PROGRESS", questId: "q1", amount: 1 });
-
-      // Mark grid cells as found
-      setGridData((prev) => {
-        const puzz = puzzleRef.current;
-        if (!puzz) return prev;
-        const updated = prev.map((cell) =>
-          puzz.targetWords[cell.wordId]?.word === word
-            ? { ...cell, isFound: true }
-            : cell
-        );
-        gridDataRef.current = updated;
-        return updated;
-      });
-
-      // Check if level complete — use ref to get latest foundWords
-      const puzz = puzzleRef.current;
-      if (!puzz) return;
-
-      const allFound = puzz.targetWords.every(
-        (tw) => tw.word === word || foundWordsRef.current.includes(tw.word)
-      );
-
-      if (allFound) {
-        setGameWon(true);
-        gameWonRef.current = true;
-        setTimeout(() => {
-          dispatch({ type: "ADD_XP", amount: 150 });
-          dispatch({ type: "ADD_GOLD", amount: 100 });
-          dispatch({ type: "COMPLETE_CITY", cityId, stars: 3 });
-          setLevel((prev) => prev + 1);
-        }, 1200);
-      }
-    },
-    [dispatch, cityId, triggerFlash]
-  );
-
-  const onBonusFound = useCallback(
-    (word: string) => {
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      }
-      triggerFlash(word);
-      setFoundWords((prev) => [...prev, word]);
-      dispatch({ type: "ADD_GOLD", amount: 20 });
-    },
-    [dispatch, triggerFlash]
-  );
-
-  // ─── Check letter at touch position (uses refs — no stale closure) ────────────
-  const checkLetterAtPosition = useCallback(
-    (x: number, y: number) => {
-      const positions = letterPositionsRef.current;
-      positions.forEach((pos) => {
-        const dist = Math.sqrt(
-          Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2)
-        );
-        if (dist < 45) {
-          setSelectedIndices((prev) => {
-            if (prev.length > 0 && prev[prev.length - 1] === pos.index) return prev;
-            if (prev.length > 1 && prev[prev.length - 2] === pos.index) return prev;
-            if (!prev.includes(pos.index)) {
-              if (Platform.OS !== "web") {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }
-              return [...prev, pos.index];
+  // ─── Check letter at touch position ────────────────────────────────────────────
+  const checkLetterAtPosition = useCallback((x: number, y: number) => {
+    const positions = letterPositionsRef.current;
+    positions.forEach((pos) => {
+      const dist = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+      if (dist < 45) {
+        setSelectedIndices((prev) => {
+          if (prev.length > 0 && prev[prev.length - 1] === pos.index) return prev;
+          if (prev.length > 1 && prev[prev.length - 2] === pos.index) return prev;
+          if (!prev.includes(pos.index)) {
+            if (Platform.OS !== "web") {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }
-            return prev;
-          });
-        }
-      });
-    },
-    []
-  );
+            return [...prev, pos.index];
+          }
+          return prev;
+        });
+      }
+    });
+  }, []);
 
-  // ─── PanResponder — all logic via refs, no stale closures ────────────────────
+  // ─── PanResponder ─────────────────────────────────────────────────────────────
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -260,7 +197,6 @@ export default function GameScreen() {
         const { locationX, locationY } = evt.nativeEvent;
         setTouchTrail([{ x: locationX, y: locationY }]);
 
-        // Check letter at start position
         const positions = letterPositionsRef.current;
         positions.forEach((pos) => {
           const dist = Math.sqrt(
@@ -325,9 +261,7 @@ export default function GameScreen() {
         const alreadyFound = foundWordsRef.current.includes(attempt);
 
         if (result === "target" && !alreadyFound) {
-          // onTargetFound is called via setTimeout to let state settle
           setTimeout(() => {
-            // Re-read refs inside timeout for latest values
             const latestPuzz = puzzleRef.current;
             const latestFound = foundWordsRef.current;
             if (!latestPuzz) return;
@@ -352,12 +286,19 @@ export default function GameScreen() {
               return updated;
             });
 
-            // Flash effect
             setFlashWord(attempt);
             flashAnim.setValue(0);
             Animated.sequence([
-              Animated.timing(flashAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-              Animated.timing(flashAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+              Animated.timing(flashAnim, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+              }),
+              Animated.timing(flashAnim, {
+                toValue: 0,
+                duration: 400,
+                useNativeDriver: true,
+              }),
             ]).start(() => setFlashWord(null));
 
             dispatch({ type: "QUEST_PROGRESS", questId: "q1", amount: 1 });
@@ -389,8 +330,16 @@ export default function GameScreen() {
             setFlashWord(attempt);
             flashAnim.setValue(0);
             Animated.sequence([
-              Animated.timing(flashAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-              Animated.timing(flashAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+              Animated.timing(flashAnim, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+              }),
+              Animated.timing(flashAnim, {
+                toValue: 0,
+                duration: 400,
+                useNativeDriver: true,
+              }),
             ]).start(() => setFlashWord(null));
           }, 0);
         } else {
@@ -398,10 +347,26 @@ export default function GameScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
           Animated.sequence([
-            Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-            Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-            Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-            Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+            Animated.timing(shakeAnim, {
+              toValue: 10,
+              duration: 50,
+              useNativeDriver: true,
+            }),
+            Animated.timing(shakeAnim, {
+              toValue: -10,
+              duration: 50,
+              useNativeDriver: true,
+            }),
+            Animated.timing(shakeAnim, {
+              toValue: 10,
+              duration: 50,
+              useNativeDriver: true,
+            }),
+            Animated.timing(shakeAnim, {
+              toValue: 0,
+              duration: 50,
+              useNativeDriver: true,
+            }),
           ]).start();
         }
 
@@ -460,6 +425,10 @@ export default function GameScreen() {
     .join("")
     .toUpperCase();
 
+  // Grid'in pixel konumlarını hesapla
+  const gridStartX = 20;
+  const gridStartY = 60;
+
   return (
     <ImageBackground source={{ uri: BG_URL }} style={styles.background}>
       <ScreenContainer
@@ -498,7 +467,10 @@ export default function GameScreen() {
                 key={cell.id}
                 style={[
                   styles.cell,
-                  { left: cell.x, top: cell.y },
+                  {
+                    left: gridStartX + cell.col * CELL_SIZE,
+                    top: gridStartY + cell.row * CELL_SIZE,
+                  },
                   cell.isFound && styles.cellActive,
                 ]}
               >
@@ -621,14 +593,14 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 1,
   },
-  gridArea: { flex: 0.4, marginTop: 20 },
+  gridArea: { flex: 0.35, marginTop: 10 },
   grid: { flex: 1, position: "relative" },
   cell: {
     position: "absolute",
-    width: GRID_SIZE,
-    height: GRID_SIZE,
+    width: CELL_SIZE,
+    height: CELL_SIZE,
     backgroundColor: "rgba(15, 30, 82, 0.5)",
-    borderRadius: 6,
+    borderRadius: 4,
     borderWidth: 1.5,
     borderColor: "rgba(255,255,255,0.25)",
     justifyContent: "center",
@@ -642,7 +614,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
   },
-  cellText: { fontSize: 22, fontWeight: "900", color: "transparent" },
+  cellText: { fontSize: 18, fontWeight: "900", color: "transparent" },
   cellTextActive: { color: "#0F1E52" },
   previewArea: { height: 56, alignItems: "center", justifyContent: "center" },
   previewBadge: {
@@ -659,9 +631,9 @@ const styles = StyleSheet.create({
   },
   previewText: {
     color: "white",
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "900",
-    letterSpacing: 4,
+    letterSpacing: 3,
   },
   wheelContainer: {
     flex: 1,
