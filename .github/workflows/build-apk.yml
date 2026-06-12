@@ -43,6 +43,8 @@ jobs:
           build-tools-version: '34.0.0'
 
       - name: Build APK Locally
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           npm install -g eas-cli
           npx expo prebuild --platform android
