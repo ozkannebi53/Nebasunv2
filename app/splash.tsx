@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Dimensions, ImageBackground } from "react-native";
+import { View, Text, StyleSheet, Animated, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
@@ -8,22 +8,12 @@ const { width, height } = Dimensions.get("window");
 export default function SplashScreen() {
   const router = useRouter();
   
-  // Animasyon değerleri
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const letterSpacingAnim = useRef(new Animated.Value(20)).current;
-  const bgOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Animasyon dizisi
     Animated.sequence([
-      // Arka plan yavaşça belirsin
-      Animated.timing(bgOpacity, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      // Metin ve ölçek animasyonu
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -38,15 +28,14 @@ export default function SplashScreen() {
         Animated.timing(letterSpacingAnim, {
           toValue: 5,
           duration: 2000,
-          useNativeDriver: false, // letterSpacing native driver desteklemez
+          useNativeDriver: false,
         }),
       ]),
     ]).start();
 
-    // 4 saniye sonra ana ekrana geç
     const timer = setTimeout(() => {
       router.replace("/(tabs)");
-    }, 4500);
+    }, 4000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -54,9 +43,7 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Koyu lacivert/siyah şık arka plan */}
-      <View style={[styles.background, { opacity: 1 }]} />
+      <View style={styles.background} />
       
       <Animated.View 
         style={[
@@ -67,7 +54,6 @@ export default function SplashScreen() {
           }
         ]}
       >
-        {/* Beyaz, şık ve animasyonlu font */}
         <Animated.Text 
           style={[
             styles.brandText,
@@ -79,13 +65,13 @@ export default function SplashScreen() {
         
         <View style={styles.separator} />
         
-        <Text style={styles.subText}>NEBASUN v3.1</Text>
+        <Text style={styles.subText}>AKREP ZEKA GÜCÜYLE</Text>
       </Animated.View>
 
       <View style={styles.footer}>
-        <Text style={styles.loadingText}>YÜKLENİYOR</Text>
+        <Text style={styles.loadingText}>BAŞLATILIYOR</Text>
         <View style={styles.loadingBarContainer}>
-          <Animated.View style={styles.loadingBar} />
+          <View style={styles.loadingBar} />
         </View>
       </View>
     </View>
@@ -119,7 +105,7 @@ const styles = StyleSheet.create({
   separator: {
     width: 60,
     height: 3,
-    backgroundColor: "#5A2EFF",
+    backgroundColor: "#FF00FF",
     marginVertical: 15,
     borderRadius: 2,
   },
@@ -135,7 +121,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    color: "#5A2EFF",
+    color: "#FF00FF",
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 2,
@@ -151,6 +137,6 @@ const styles = StyleSheet.create({
   loadingBar: {
     width: "100%",
     height: "100%",
-    backgroundColor: "#5A2EFF",
+    backgroundColor: "#FF00FF",
   }
 });

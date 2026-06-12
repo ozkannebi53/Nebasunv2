@@ -1,7 +1,8 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, KeyboardAvoidingView, Platform, Animated,
+  ActivityIndicator
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -10,36 +11,53 @@ import { getLimaAIResponse, type ConversationContext } from "@/lib/lima-ai";
 import type { Message } from "@/lib/lima-ai";
 import * as Haptics from "expo-haptics";
 
-const QUICK_WORDS = ["KALE", "AKREP", "BAKLAVA", "BOĞAZ", "SULTAN", "GÜREŞ", "YILDIZ", "SABIR", "Anlamı nedir?", "Kökü nedir?"];
-
-export default function LimaScreen() {
+export default function AkrepZekaScreen() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
-    { id: "0", text: "Merhaba! Ben Lima, senin kelime rehberin. 🦂 Llama 3.2 (3B) ile artık çok daha zekiyim! Herhangi bir Türkçe kelime hakkında soru sorabilirsin veya sohbet edebiliriz!", from: "lima" },
+    { 
+      id: "0", 
+      text: "Merhaba! Ben AKREP ZEKA. Seninle her konuda sohbet edebilir, sorunlarını dinleyebilir ve sana yardımcı olabilirim. Sadece oyun için değil, hayatın her anı için buradayım. Ne anlatmak istersin? 🦂", 
+      from: "lima" 
+    },
   ]);
   const [context, setContext] = useState<ConversationContext>({ history: [] });
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  const sendMessage = useCallback((text: string) => {
-    if (!text.trim()) return;
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || isLoading) return;
+    
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
     const userMsg: Message = { id: Date.now().toString(), text: text.trim(), from: "user" };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
+    setIsLoading(true);
+
+    // AI yanıtı için kısa bir gecikme ve işlem
     setTimeout(() => {
+      // Burada gerçekte backend çağrısı yapılacak, şimdilik mevcut mantığı AKREP ZEKA'ya uyarlıyoruz
       const response = getLimaAIResponse(text.trim(), context);
-      const limaMsg: Message = { id: (Date.now() + 1).toString(), text: response, from: "lima" };
-      setMessages(prev => [...prev, limaMsg]);
-      setContext(prev => ({ ...prev, history: [...(prev.history || []), { role: "user" as const, content: text.trim() }] }));
+      const akrepMsg: Message = { id: (Date.now() + 1).toString(), text: response, from: "lima" };
+      
+      setMessages(prev => [...prev, akrepMsg]);
+      setContext(prev => ({ 
+        ...prev, 
+        history: [...(prev.history || []), { role: "user" as const, content: text.trim() }] 
+      }));
+      
+      setIsLoading(false);
+      
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-    }, 600);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [context]);
+    }, 1000);
 
-  const animateLima = () => {
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+  }, [context, isLoading]);
+
+  const animateAkrep = () => {
     Animated.sequence([
       Animated.timing(scaleAnim, { toValue: 1.2, duration: 150, useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 1,   duration: 150, useNativeDriver: true }),
@@ -54,33 +72,17 @@ export default function LimaScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <IconSymbol name="arrow.left" size={22} color="#FFFFFF" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={animateLima} activeOpacity={0.8}>
-            <Animated.Text style={[styles.limaEmoji, { transform: [{ scale: scaleAnim }] }]}>🦂</Animated.Text>
+          <TouchableOpacity onPress={animateAkrep} activeOpacity={0.8}>
+            <Animated.Text style={[styles.akrepEmoji, { transform: [{ scale: scaleAnim }] }]}>🦂</Animated.Text>
           </TouchableOpacity>
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.headerTitle}>Lima AI</Text>
-            <Text style={styles.headerSub}>Llama 3.2 (3B) Aktif</Text>
+            <Text style={styles.headerTitle}>AKREP ZEKA</Text>
+            <Text style={styles.headerSub}>Canlı ve Zeki Sohbet</Text>
           </View>
           <View style={styles.onlineBadge}>
             <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>Çevrimiçi</Text>
+            <Text style={styles.onlineText}>Aktif</Text>
           </View>
-        </View>
-
-        {/* Quick words */}
-        <View style={styles.quickRow}>
-          <FlatList
-            data={QUICK_WORDS}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={w => w}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.quickChip} onPress={() => sendMessage(item)} activeOpacity={0.75}>
-                <Text style={styles.quickChipText}>{item}</Text>
-              </TouchableOpacity>
-            )}
-          />
         </View>
 
         {/* Messages */}
@@ -99,18 +101,22 @@ export default function LimaScreen() {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="Bir kelime yaz… (örn: KALE)"
+            placeholder="AKREP ZEKA ile konuş..."
             placeholderTextColor="#8899BB"
             returnKeyType="send"
             onSubmitEditing={() => sendMessage(input)}
-            autoCapitalize="characters"
+            autoCapitalize="sentences" // Artık büyük harf zorunlu değil
           />
           <TouchableOpacity
-            style={[styles.sendBtn, !input.trim() && { opacity: 0.4 }]}
+            style={[styles.sendBtn, (!input.trim() || isLoading) && { opacity: 0.4 }]}
             onPress={() => sendMessage(input)}
-            disabled={!input.trim()}
+            disabled={!input.trim() || isLoading}
           >
-            <IconSymbol name="paperplane.fill" size={20} color="#FFFFFF" />
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <IconSymbol name="paperplane.fill" size={20} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -119,12 +125,12 @@ export default function LimaScreen() {
 }
 
 function MessageBubble({ msg }: { msg: Message }) {
-  const isLima = msg.from === "lima";
+  const isAkrep = msg.from === "lima";
   return (
-    <View style={[styles.bubble, isLima ? styles.bubbleLima : styles.bubbleUser]}>
-      {isLima && <Text style={styles.bubbleEmoji}>🦂</Text>}
-      <View style={[styles.bubbleContent, isLima ? styles.bubbleContentLima : styles.bubbleContentUser]}>
-        <Text style={[styles.bubbleText, { textAlign: isLima ? "left" : "right" }]}>{msg.text}</Text>
+    <View style={[styles.bubble, isAkrep ? styles.bubbleAkrep : styles.bubbleUser]}>
+      {isAkrep && <Text style={styles.bubbleEmoji}>🦂</Text>}
+      <View style={[styles.bubbleContent, isAkrep ? styles.bubbleContentAkrep : styles.bubbleContentUser]}>
+        <Text style={[styles.bubbleText, { textAlign: isAkrep ? "left" : "right" }]}>{msg.text}</Text>
       </View>
     </View>
   );
@@ -137,26 +143,20 @@ const styles = StyleSheet.create({
     backgroundColor: "#0F1E52", borderBottomWidth: 1, borderBottomColor: "#1E2F6E",
   },
   backBtn: { marginRight: 8, padding: 4 },
-  limaEmoji: { fontSize: 36 },
-  headerTitle: { color: "#FFFFFF", fontWeight: "800", fontSize: 16 },
+  akrepEmoji: { fontSize: 36 },
+  headerTitle: { color: "#FFFFFF", fontWeight: "900", fontSize: 18, letterSpacing: 1 },
   headerSub: { color: "#22C55E", fontSize: 12, fontWeight: "700" },
   onlineBadge: { flexDirection: "row", alignItems: "center", gap: 5 },
   onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22C55E" },
   onlineText: { color: "#22C55E", fontSize: 11, fontWeight: "600" },
-  quickRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#1E2F6E" },
-  quickChip: {
-    backgroundColor: "#5A2EFF22", borderWidth: 1, borderColor: "#5A2EFF",
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
-  },
-  quickChipText: { color: "#5A2EFF", fontWeight: "700", fontSize: 12 },
   bubble: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-  bubbleLima: { justifyContent: "flex-start" },
+  bubbleAkrep: { justifyContent: "flex-start" },
   bubbleUser: { justifyContent: "flex-end" },
   bubbleEmoji: { fontSize: 24, marginBottom: 4 },
   bubbleContent: { maxWidth: "80%", borderRadius: 16, padding: 12 },
-  bubbleContentLima: { backgroundColor: "#0F1E52", borderWidth: 1, borderColor: "#1E2F6E" },
+  bubbleContentAkrep: { backgroundColor: "#0F1E52", borderWidth: 1, borderColor: "#1E2F6E" },
   bubbleContentUser: { backgroundColor: "#5A2EFF" },
-  bubbleText: { color: "#FFFFFF", fontSize: 14, lineHeight: 20 },
+  bubbleText: { color: "#FFFFFF", fontSize: 15, lineHeight: 22 },
   inputRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
     paddingHorizontal: 16, paddingVertical: 12,
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1, backgroundColor: "#0B163F", borderWidth: 1, borderColor: "#1E2F6E",
     borderRadius: 24, paddingHorizontal: 16, paddingVertical: 10,
-    color: "#FFFFFF", fontSize: 14,
+    color: "#FFFFFF", fontSize: 15,
   },
   sendBtn: {
     width: 44, height: 44, borderRadius: 22,
