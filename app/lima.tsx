@@ -2,114 +2,140 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, KeyboardAvoidingView, Platform, Animated,
-  ActivityIndicator
+  ActivityIndicator, SafeAreaView
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { getLimaAIResponse, type ConversationContext } from "@/lib/lima-ai";
-import type { Message } from "@/lib/lima-ai";
+import { trpc } from "@/lib/trpc";
+import { AKREP_ZEKA_SYSTEM_PROMPT } from "@/lib/akrep-ai";
 import * as Haptics from "expo-haptics";
+
+interface Message {
+  id: string;
+  text: string;
+  from: "user" | "akrep";
+}
 
 export default function AkrepZekaScreen() {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
     { 
       id: "0", 
-      text: "Merhaba! Ben AKREP ZEKA. Seninle her konuda sohbet edebilir, sorunlarını dinleyebilir ve sana yardımcı olabilirim. Sadece oyun için değil, hayatın her anı için buradayım. Ne anlatmak istersin? 🦂", 
-      from: "lima" 
+      text: "Merhaba! Ben AKREP ZEKA. Seninle her konuda sohbet edebilir, sorunlarını dinleyebilir ve sana yardımcı olabilirim. ChatGPT veya Claude gibi düşün; her şeyi sorabilirsin. 🦂", 
+      from: "akrep" 
     },
   ]);
-  const [context, setContext] = useState<ConversationContext>({ history: [] });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const listRef = useRef<FlatList>(null);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  
+  // trpc mutation hook
+  const chatMutation = trpc.ai.chat.useMutation();
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isLoading) return;
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || isLoading) return;
     
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
-    const userMsg: Message = { id: Date.now().toString(), text: text.trim(), from: "user" };
+    const userMsg: Message = { id: Date.now().toString(), text, from: "user" };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
 
-    // AI yanıtı için kısa bir gecikme ve işlem
-    setTimeout(() => {
-      // Burada gerçekte backend çağrısı yapılacak, şimdilik mevcut mantığı AKREP ZEKA'ya uyarlıyoruz
-      const response = getLimaAIResponse(text.trim(), context);
-      const akrepMsg: Message = { id: (Date.now() + 1).toString(), text: response, from: "lima" };
+    try {
+      // Sohbet geçmişini hazırla
+      const history = messages.map(m => ({
+        role: m.from === "user" ? "user" as const : "assistant" as const,
+        content: m.text
+      }));
+
+      // Backend'deki AKREP ZEKA'yı (gpt-4o) çağır
+      const response = await chatMutation.mutateAsync({
+        messages: [
+          { role: "system", content: AKREP_ZEKA_SYSTEM_PROMPT },
+          ...history,
+          { role: "user", content: text }
+        ]
+      });
+
+      const akrepMsg: Message = { 
+        id: (Date.now() + 1).toString(), 
+        text: response.content, 
+        from: "akrep" 
+      };
       
       setMessages(prev => [...prev, akrepMsg]);
-      setContext(prev => ({ 
-        ...prev, 
-        history: [...(prev.history || []), { role: "user" as const, content: text.trim() }] 
-      }));
-      
-      setIsLoading(false);
-      
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("AKREP ZEKA Error:", error);
+      const errorMsg: Message = { 
+        id: (Date.now() + 1).toString(), 
+        text: "Şu an bağlantımda bir sorun var ama AKREP ZEKA her zaman burada. Lütfen tekrar dener misin? 🦂", 
+        from: "akrep" 
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setIsLoading(false);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-    }, 1000);
-
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [context, isLoading]);
-
-  const animateAkrep = () => {
-    Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 1.2, duration: 150, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 1,   duration: 150, useNativeDriver: true }),
-    ]).start();
+    }
   };
 
   return (
-    <ScreenContainer containerClassName="bg-background" edges={["top", "left", "right"]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={80}>
+    <ScreenContainer containerClassName="bg-[#050A1E]" edges={["top", "left", "right"]}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === "ios" ? "padding" : undefined} 
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <IconSymbol name="arrow.left" size={22} color="#FFFFFF" />
+            <IconSymbol name="arrow.left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={animateAkrep} activeOpacity={0.8}>
-            <Animated.Text style={[styles.akrepEmoji, { transform: [{ scale: scaleAnim }] }]}>🦂</Animated.Text>
-          </TouchableOpacity>
-          <View style={{ flex: 1, marginLeft: 10 }}>
+          <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>AKREP ZEKA</Text>
-            <Text style={styles.headerSub}>Canlı ve Zeki Sohbet</Text>
+            <View style={styles.statusRow}>
+              <View style={styles.onlineDot} />
+              <Text style={styles.statusText}>GPT-4o Gücüyle Aktif</Text>
+            </View>
           </View>
-          <View style={styles.onlineBadge}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>Aktif</Text>
-          </View>
+          <Text style={styles.akrepEmojiHeader}>🦂</Text>
         </View>
 
-        {/* Messages */}
+        {/* Messages List */}
         <FlatList
           ref={listRef}
           data={messages}
           keyExtractor={m => m.id}
-          contentContainerStyle={{ padding: 16, gap: 12 }}
-          renderItem={({ item }) => <MessageBubble msg={item} />}
-          onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
+          contentContainerStyle={styles.messageList}
+          renderItem={({ item }) => (
+            <View style={[styles.bubbleContainer, item.from === "user" ? styles.userContainer : styles.akrepContainer]}>
+              {item.from === "akrep" && <Text style={styles.bubbleEmoji}>🦂</Text>}
+              <View style={[styles.bubble, item.from === "user" ? styles.userBubble : styles.akrepBubble]}>
+                <Text style={styles.bubbleText}>{item.text}</Text>
+              </View>
+            </View>
+          )}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         />
 
-        {/* Input */}
-        <View style={styles.inputRow}>
+        {/* Input Area */}
+        <View style={styles.inputArea}>
           <TextInput
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder="AKREP ZEKA ile konuş..."
+            placeholder="AKREP ZEKA'ya her şeyi sorabilirsin..."
             placeholderTextColor="#8899BB"
-            returnKeyType="send"
-            onSubmitEditing={() => sendMessage(input)}
-            autoCapitalize="sentences" // Artık büyük harf zorunlu değil
+            multiline
+            maxHeight={120}
+            autoCapitalize="sentences"
           />
           <TouchableOpacity
-            style={[styles.sendBtn, (!input.trim() || isLoading) && { opacity: 0.4 }]}
-            onPress={() => sendMessage(input)}
+            style={[styles.sendBtn, (!input.trim() || isLoading) && styles.sendBtnDisabled]}
+            onPress={sendMessage}
             disabled={!input.trim() || isLoading}
           >
             {isLoading ? (
@@ -124,51 +150,43 @@ export default function AkrepZekaScreen() {
   );
 }
 
-function MessageBubble({ msg }: { msg: Message }) {
-  const isAkrep = msg.from === "lima";
-  return (
-    <View style={[styles.bubble, isAkrep ? styles.bubbleAkrep : styles.bubbleUser]}>
-      {isAkrep && <Text style={styles.bubbleEmoji}>🦂</Text>}
-      <View style={[styles.bubbleContent, isAkrep ? styles.bubbleContentAkrep : styles.bubbleContentUser]}>
-        <Text style={[styles.bubbleText, { textAlign: isAkrep ? "left" : "right" }]}>{msg.text}</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   header: {
     flexDirection: "row", alignItems: "center",
-    paddingHorizontal: 16, paddingVertical: 12,
+    paddingHorizontal: 20, paddingVertical: 15,
     backgroundColor: "#0F1E52", borderBottomWidth: 1, borderBottomColor: "#1E2F6E",
   },
-  backBtn: { marginRight: 8, padding: 4 },
-  akrepEmoji: { fontSize: 36 },
-  headerTitle: { color: "#FFFFFF", fontWeight: "900", fontSize: 18, letterSpacing: 1 },
-  headerSub: { color: "#22C55E", fontSize: 12, fontWeight: "700" },
-  onlineBadge: { flexDirection: "row", alignItems: "center", gap: 5 },
-  onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22C55E" },
-  onlineText: { color: "#22C55E", fontSize: 11, fontWeight: "600" },
-  bubble: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-  bubbleAkrep: { justifyContent: "flex-start" },
-  bubbleUser: { justifyContent: "flex-end" },
-  bubbleEmoji: { fontSize: 24, marginBottom: 4 },
-  bubbleContent: { maxWidth: "80%", borderRadius: 16, padding: 12 },
-  bubbleContentAkrep: { backgroundColor: "#0F1E52", borderWidth: 1, borderColor: "#1E2F6E" },
-  bubbleContentUser: { backgroundColor: "#5A2EFF" },
-  bubbleText: { color: "#FFFFFF", fontSize: 15, lineHeight: 22 },
-  inputRow: {
-    flexDirection: "row", alignItems: "center", gap: 10,
-    paddingHorizontal: 16, paddingVertical: 12,
+  backBtn: { padding: 5 },
+  headerTitleContainer: { flex: 1, marginLeft: 15 },
+  headerTitle: { color: "#FFFFFF", fontWeight: "900", fontSize: 20, letterSpacing: 1 },
+  statusRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
+  onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22C55E", marginRight: 6 },
+  statusText: { color: "#22C55E", fontSize: 12, fontWeight: "700" },
+  akrepEmojiHeader: { fontSize: 32 },
+  
+  messageList: { padding: 20, paddingBottom: 30 },
+  bubbleContainer: { flexDirection: "row", marginBottom: 20, alignItems: "flex-end" },
+  userContainer: { justifyContent: "flex-end" },
+  akrepContainer: { justifyContent: "flex-start" },
+  bubbleEmoji: { fontSize: 24, marginRight: 8, marginBottom: 5 },
+  bubble: { maxWidth: "80%", padding: 14, borderRadius: 20 },
+  userBubble: { backgroundColor: "#5A2EFF", borderBottomRightRadius: 4 },
+  akrepBubble: { backgroundColor: "#0F1E52", borderWidth: 1, borderColor: "#1E2F6E", borderBottomLeftRadius: 4 },
+  bubbleText: { color: "#FFFFFF", fontSize: 16, lineHeight: 22 },
+  
+  inputArea: {
+    flexDirection: "row", alignItems: "flex-end", padding: 15,
     backgroundColor: "#0F1E52", borderTopWidth: 1, borderTopColor: "#1E2F6E",
+    gap: 12,
   },
   input: {
-    flex: 1, backgroundColor: "#0B163F", borderWidth: 1, borderColor: "#1E2F6E",
-    borderRadius: 24, paddingHorizontal: 16, paddingVertical: 10,
-    color: "#FFFFFF", fontSize: 15,
+    flex: 1, backgroundColor: "#0B163F", borderRadius: 24,
+    paddingHorizontal: 18, paddingVertical: 12, color: "#FFFFFF",
+    fontSize: 16, borderWidth: 1, borderColor: "#1E2F6E",
   },
   sendBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 50, height: 50, borderRadius: 25,
     backgroundColor: "#5A2EFF", alignItems: "center", justifyContent: "center",
   },
+  sendBtnDisabled: { backgroundColor: "#1E2F6E", opacity: 0.6 },
 });
