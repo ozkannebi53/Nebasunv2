@@ -10,6 +10,7 @@ import {
   Animated,
   PanResponder,
   LayoutChangeEvent,
+  Modal,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -18,6 +19,7 @@ import * as Haptics from "expo-haptics";
 import { generatePuzzle, checkWord, type Puzzle } from "@/lib/word-engine";
 import Svg, { Path, Circle } from "react-native-svg";
 import { useGame } from "@/lib/game-context";
+import { WORLD } from "@/data/world-data";
 
 const { width, height } = Dimensions.get("window");
 const BG_URL =
@@ -45,12 +47,13 @@ interface TouchPoint {
 export default function GameScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { dispatch } = useGame();
+  const { dispatch, state } = useGame();
 
-  const cityId = (params.cityId as string) || "istanbul";
+  const countryId = (params.countryId as string) || "turkey";
+  const provinceId = (params.provinceId as string) || "istanbul";
   const initialLevel = parseInt((params.level as string) || "1");
 
-  const [level, setLevel] = useState(initialLevel);
+  const [currentLevel, setCurrentLevel] = useState(initialLevel);
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [foundWords, setFoundWords] = useState<string[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
@@ -59,6 +62,7 @@ export default function GameScreen() {
   const [gameWon, setGameWon] = useState(false);
   const [flashWord, setFlashWord] = useState<string | null>(null);
   const [wheelLayout, setWheelLayout] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [showLevelComplete, setShowLevelComplete] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -78,6 +82,47 @@ export default function GameScreen() {
   useEffect(() => { gameWonRef.current = gameWon; }, [gameWon]);
   useEffect(() => { gridDataRef.current = gridData; }, [gridData]);
   useEffect(() => { wheelLayoutRef.current = wheelLayout; }, [wheelLayout]);
+
+  // Seviye yükle
+  useEffect(() => {
+    const country = WORLD.find((c) => c.id === countryId);
+    const province = country?.provinces.find((p) => p.id === provinceId);
+    const level = province?.levels.find((l) => l.id === currentLevel);
+
+    if (level) {
+      const newPuzzle: Puzzle = {
+        id: `${countryId}-${provinceId}-${currentLevel}`,
+        cityId: provinceId,
+        level: currentLevel,
+        letters: level.letters,
+        targetWords: level.targetWords.map((tw) => ({
+          word: tw.word,
+          meaning: tw.word,
+          category: "Genel",
+          clue: tw.word,
+          found: false,
+          isBonus: false,
+          gridPos: {
+            row: tw.row,
+            col: tw.col,
+            direction: tw.direction,
+          },
+        })),
+        bonusWords: [],
+        allValidWords: new Set(level.targetWords.map((w) => w.word)),
+        gridWidth: 10,
+        gridHeight: 10,
+      };
+
+      setPuzzle(newPuzzle);
+      setFoundWords([]);
+      setSelectedIndices([]);
+      setTouchTrail([]);
+      setGameWon(false);
+      setShowLevelComplete(false);
+      fadeAnim.setValue(0);
+    }
+  }, [currentLevel, countryId, provinceId]);
 
   const letterPositions = useMemo(() => {
     if (!puzzle) return [];
@@ -119,16 +164,6 @@ export default function GameScreen() {
     Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, [puzzle]);
 
-  useEffect(() => {
-    const newPuzzle = generatePuzzle(cityId, level);
-    setPuzzle(newPuzzle);
-    setFoundWords([]);
-    setSelectedIndices([]);
-    setTouchTrail([]);
-    setGameWon(false);
-    fadeAnim.setValue(0);
-  }, [level, cityId]);
-
   const onWheelLayout = (event: LayoutChangeEvent) => {
     const { x, y, width, height } = event.nativeEvent.layout;
     setWheelLayout({ x, y, width, height });
@@ -139,7 +174,6 @@ export default function GameScreen() {
       onStartShouldSetPanResponder: (evt) => {
         const { pageX, pageY } = evt.nativeEvent;
         const layout = wheelLayoutRef.current;
-        // Sadece çember alanı içindeyse responder'ı kabul et
         return (
           pageX >= layout.x &&
           pageX <= layout.x + layout.width &&
@@ -202,14 +236,15 @@ export default function GameScreen() {
             Animated.timing(flashAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
           ]).start(() => setFlashWord(null));
 
+          dispatch({ type: "QUEST_PROGRESS", questId: "q1", amount: 1 });
+
           const allFound = puzz.targetWords.every(tw => tw.word === attempt || foundWordsRef.current.includes(tw.word));
           if (allFound) {
             setGameWon(true);
-            setTimeout(() => {
-              dispatch({ type: "ADD_XP", amount: 150 });
-              dispatch({ type: "ADD_GOLD", amount: 100 });
-              setLevel(prev => prev + 1);
-            }, 1200);
+            if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            dispatch({ type: "ADD_XP", amount: 150 });
+            dispatch({ type: "ADD_GOLD", amount: 100 });
+            setShowLevelComplete(true);
           }
         } else {
           if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -239,7 +274,6 @@ export default function GameScreen() {
     );
   };
 
-  // Izgarayı ortalamak için sınırları hesapla
   const gridBounds = useMemo(() => {
     if (gridData.length === 0) return { minR: 0, maxR: 0, minC: 0, maxC: 0 };
     const rows = gridData.map(c => c.row);
@@ -255,6 +289,16 @@ export default function GameScreen() {
   const gridWidth = (gridBounds.maxC - gridBounds.minC + 1) * CELL_SIZE;
   const gridHeight = (gridBounds.maxR - gridBounds.minR + 1) * CELL_SIZE;
 
+  const handleNextLevel = () => {
+    const country = WORLD.find((c) => c.id === countryId);
+    const province = country?.provinces.find((p) => p.id === provinceId);
+    if (province && currentLevel < province.levels.length) {
+      setCurrentLevel(currentLevel + 1);
+    } else {
+      router.back();
+    }
+  };
+
   return (
     <ImageBackground source={{ uri: BG_URL }} style={styles.background}>
       <ScreenContainer containerClassName="bg-transparent" edges={["top", "left", "right"]}>
@@ -262,11 +306,14 @@ export default function GameScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
             <IconSymbol name="chevron.left" size={28} color="white" />
           </TouchableOpacity>
-          <View style={styles.levelBadge}><Text style={styles.levelText}>BÖLÜM {level}</Text></View>
-          <TouchableOpacity style={styles.iconBtn}><IconSymbol name="bolt.fill" size={24} color="#FFD700" /></TouchableOpacity>
+          <View style={styles.levelBadge}>
+            <Text style={styles.levelText}>BÖLÜM {currentLevel}</Text>
+          </View>
+          <TouchableOpacity style={styles.iconBtn}>
+            <IconSymbol name="bolt.fill" size={24} color="#FFD700" />
+          </TouchableOpacity>
         </View>
 
-        {/* Ortalı ve Sabit Izgara Alanı */}
         <View style={styles.gridContainer}>
           <Animated.View style={[
             styles.grid,
@@ -329,7 +376,20 @@ export default function GameScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.akrepFab} onPress={() => router.push("/lima")}><Text style={{ fontSize: 28 }}>🦂</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.akrepFab} onPress={() => router.push("/lima")}><Text style={{ fontSize: 24 }}>🦂</Text></TouchableOpacity>
+
+        {/* Level Complete Modal */}
+        <Modal visible={showLevelComplete} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>🎉 BÖLÜM TAMAMLANDI!</Text>
+              <Text style={styles.modalReward}>+150 XP  +100 Altın</Text>
+              <TouchableOpacity style={styles.modalButton} onPress={handleNextLevel}>
+                <Text style={styles.modalButtonText}>Sonraki Bölüme Geç →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </ScreenContainer>
     </ImageBackground>
   );
@@ -355,5 +415,11 @@ const styles = StyleSheet.create({
   wheel: { width: CIRCLE_SIZE, height: CIRCLE_SIZE, borderRadius: CIRCLE_SIZE / 2, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 4, borderColor: "rgba(255,255,255,0.2)", position: "relative" },
   letterNode: { position: "absolute", width: LETTER_SIZE, height: LETTER_SIZE, borderRadius: LETTER_SIZE / 2, justifyContent: "center", alignItems: "center", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 4, elevation: 5 },
   letterNodeText: { fontSize: 26, fontWeight: "900" },
-  akrepFab: { position: "absolute", bottom: 30, right: 30, width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(15, 30, 82, 0.95)", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FF00FF", shadowColor: "#FF00FF", shadowOpacity: 0.5, shadowRadius: 10, elevation: 10 },
+  akrepFab: { position: "absolute", bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, backgroundColor: "rgba(15, 30, 82, 0.95)", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FF00FF", shadowColor: "#FF00FF", shadowOpacity: 0.5, shadowRadius: 10, elevation: 10 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", alignItems: "center" },
+  modalContent: { backgroundColor: "rgba(15, 30, 82, 0.95)", borderRadius: 20, padding: 30, alignItems: "center", borderWidth: 2, borderColor: "#FF00FF", minWidth: "80%" },
+  modalTitle: { color: "#FF00FF", fontSize: 24, fontWeight: "900", marginBottom: 16, letterSpacing: 1 },
+  modalReward: { color: "#00C8FF", fontSize: 18, fontWeight: "700", marginBottom: 24 },
+  modalButton: { backgroundColor: "#FF00FF", paddingHorizontal: 30, paddingVertical: 12, borderRadius: 25 },
+  modalButtonText: { color: "white", fontSize: 16, fontWeight: "900" },
 });

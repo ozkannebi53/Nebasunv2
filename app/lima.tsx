@@ -206,7 +206,7 @@ export default function AkrepZekaScreen() {
               </View>
             </View>
             <View style={styles.headerAvatar}>
-              <Text style={{ fontSize: 24 }}>🦂</Text>
+              <Text style={{ fontSize: 16 }}>🦂</Text>
             </View>
           </View>
 
@@ -303,14 +303,14 @@ const styles = StyleSheet.create({
   },
   statusText: { color: "#22C55E", fontSize: 11, fontWeight: "700" },
   headerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,0,255,0.1)",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,0,255,0.15)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#FF00FF",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,0,255,0.6)",
   },
   chatList: { padding: 16, paddingBottom: 20 },
   bubbleWrapper: {
