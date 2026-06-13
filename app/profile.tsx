@@ -31,7 +31,7 @@ export default function ProfileScreen() {
   // Güvenli veri erişimi
   const quests = state.quests || [];
   const leaguePoints = state.leaguePoints || 0;
-  const leagueRank = state.leagueRank || 1000;
+  const leagueRank = 1000; // Varsayılan değer
 
   return (
     <ImageBackground source={{ uri: BG_URL }} style={styles.background}>
@@ -61,12 +61,12 @@ export default function ProfileScreen() {
               <View
                 style={[
                   styles.xpFill,
-                  { width: `${Math.min((state.xp / 1000) * 100, 100)}%` },
+                  { width: `${Math.min((state.xp / state.xpToNext) * 100, 100)}%` },
                 ]}
               />
             </View>
             <Text style={styles.xpText}>
-              {state.xp} / 1000 XP
+              {state.xp} / {state.xpToNext} XP
             </Text>
           </View>
 
@@ -117,7 +117,11 @@ export default function ProfileScreen() {
                       {quest.progress} / {quest.target}
                     </Text>
                   </View>
-                  <Text style={styles.questReward}>+{quest.reward}</Text>
+                  <View style={styles.rewardContainer}>
+                    {quest.reward.gold && <Text style={styles.questReward}>{quest.reward.gold}💰</Text>}
+                    {quest.reward.xp && <Text style={styles.questReward}>{quest.reward.xp}✨</Text>}
+                    {quest.reward.gems && <Text style={styles.questReward}>{quest.reward.gems}💎</Text>}
+                  </View>
                 </View>
               ))}
             </View>
@@ -336,11 +340,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 4,
   },
+  rewardContainer: {
+    marginLeft: 12,
+    alignItems: "flex-end",
+  },
   questReward: {
     color: "#FFD700",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "900",
-    marginLeft: 12,
   },
   leagueCard: {
     backgroundColor: "rgba(255, 0, 255, 0.15)",

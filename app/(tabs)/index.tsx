@@ -1,192 +1,210 @@
-import React, { useCallback } from "react";
+import React, { useState } from "react";
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  FlatList, Dimensions, Platform, ImageBackground,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  ImageBackground,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
-import { useGame } from "@/lib/game-context";
-import { getLeagueColor } from "@/lib/game-store";
-import type { City } from "@/lib/game-store";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import * as Haptics from "expo-haptics";
+import { useGame } from "@/lib/game-context";
+import { WORLD } from "@/data/world-data";
 
 const { width } = Dimensions.get("window");
-const CARD_W = (width - 48) / 2;
-const BG_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
+const BG_URL =
+  "https://d2xsxph8kpxj0f.cloudfront.net/310519663754068156/nNzxJg6WLQ2ETcJGtUs2Tj/game-background-gjnWzgDJS6PVKxwwfioQky.webp";
 
-function Header() {
-  const { state } = useGame();
-  const leagueColor = getLeagueColor(state.league);
-  const xpPct = Math.round((state.xp / state.xpToNext) * 100);
-
-  return (
-    <View style={styles.header}>
-      <View style={styles.avatarRow}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarEmoji}>🦂</Text>
-        </View>
-        <View style={{ marginLeft: 10, flex: 1 }}>
-          <Text style={styles.playerName}>{state.name}</Text>
-          <View style={styles.xpBar}>
-            <View style={[styles.xpFill, { width: `${xpPct}%` as any }]} />
-          </View>
-          <Text style={styles.levelText}>Seviye {state.level} · {state.xp}/{state.xpToNext} XP</Text>
-        </View>
-        <View style={[styles.leagueBadge, { borderColor: leagueColor }]}>
-          <Text style={[styles.leagueText, { color: leagueColor }]}>{state.league}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function CityCard({ city, index, onPress }: { city: City; index: number; onPress: () => void }) {
-  const isLocked = index > 0 && !city.completed;
-  return (
-    <TouchableOpacity
-      style={[styles.cityCard, isLocked && styles.cityCardLocked]}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <Text style={styles.cityEmoji}>{city.emoji}</Text>
-      <Text style={styles.cityName}>{city.name}</Text>
-      <Text style={styles.cityCountry}>{city.country}</Text>
-      {isLocked && (
-        <View style={styles.lockOverlay}>
-          <IconSymbol name="lock.fill" size={24} color="#FFFFFF88" />
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-}
+type Screen = "countries" | "provinces" | "levels";
 
 export default function AdventureScreen() {
   const router = useRouter();
   const { state } = useGame();
+  const [view, setView] = useState<Screen>("countries");
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
 
-  const handleCityPress = useCallback((city: City, index: number) => {
-    if (index > 0 && !city.completed) return;
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    (router as any).push({ pathname: "/game", params: { cityId: city.id, level: "1" } });
-  }, [router]);
+  const handleCountrySelect = (countryId: string) => {
+    setSelectedCountry(countryId);
+    setView("provinces");
+  };
 
-  const turkeyCities = state.cities.filter(c => c.country === "Türkiye");
+  const handleProvinceSelect = (provinceId: string) => {
+    setSelectedProvince(provinceId);
+    setView("levels");
+  };
+
+  const handleLevelStart = (levelId: number) => {
+    if (selectedCountry && selectedProvince) {
+      router.push({
+        pathname: "/game",
+        params: {
+          countryId: selectedCountry,
+          provinceId: selectedProvince,
+          level: levelId,
+        },
+      });
+    }
+  };
+
+  const handleBack = () => {
+    if (view === "provinces") {
+      setSelectedCountry(null);
+      setView("countries");
+    } else if (view === "levels") {
+      setSelectedProvince(null);
+      setView("provinces");
+    }
+  };
+
+  const currentCountry = WORLD.find((c) => c.id === selectedCountry);
+  const currentProvince = currentCountry?.provinces.find(
+    (p) => p.id === selectedProvince
+  );
+
+  // Kilit sistemi mantığı
+  const isLevelLocked = (levelId: number) => {
+    // Şimdilik sadece Bölüm 1 açıktır, diğerleri seviye atladıkça açılır
+    // Bu mantık daha sonra PlayerState'e kaydedilen 'unlockedLevels' ile güçlendirilecek
+    return levelId > state.level;
+  };
+
+  const renderCountries = () => (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.headerInfo}>
+        <Text style={styles.welcomeTitle}>DÜNYA TURU</Text>
+        <Text style={styles.welcomeSubtitle}>Ülke seç ve maceraya başla!</Text>
+      </View>
+
+      {WORLD.map((country) => (
+        <TouchableOpacity
+          key={country.id}
+          style={styles.card}
+          onPress={() => handleCountrySelect(country.id)}
+        >
+          <Text style={styles.cardEmoji}>{country.flag}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>{country.name}</Text>
+            <Text style={styles.cardSubtitle}>{country.provinces.length} İl • 100+ Seviye</Text>
+          </View>
+          <IconSymbol name="chevron.right" size={24} color="#5A2EFF" />
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+
+  const renderProvinces = () => (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+          <IconSymbol name="chevron.left" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{currentCountry?.name}</Text>
+      </View>
+
+      {currentCountry?.provinces.map((province) => (
+        <TouchableOpacity
+          key={province.id}
+          style={styles.card}
+          onPress={() => handleProvinceSelect(province.id)}
+        >
+          <Text style={styles.cardEmoji}>📍</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>{province.name}</Text>
+            <Text style={styles.cardSubtitle}>10 Seviye</Text>
+          </View>
+          <IconSymbol name="chevron.right" size={24} color="#5A2EFF" />
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+
+  const renderLevels = () => (
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+          <IconSymbol name="chevron.left" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{currentProvince?.name}</Text>
+      </View>
+
+      <View style={styles.levelsGrid}>
+        {currentProvince?.levels.map((level) => {
+          const locked = isLevelLocked(level.id);
+          return (
+            <TouchableOpacity
+              key={level.id}
+              style={[styles.levelButton, locked && styles.levelButtonLocked]}
+              onPress={() => !locked && handleLevelStart(level.id)}
+              disabled={locked}
+            >
+              {locked ? (
+                <IconSymbol name="lock.fill" size={24} color="rgba(255,255,255,0.3)" />
+              ) : (
+                <>
+                  <Text style={styles.levelNumber}>{level.id}</Text>
+                  <Text style={styles.levelLabel}>Bölüm</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </ScrollView>
+  );
 
   return (
-    <ImageBackground source={{ uri: BG_URL }} style={styles.container}>
-      <ScreenContainer containerClassName="bg-transparent" edges={["top", "left", "right"]}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-          <Header />
-
-          {/* AKREP ZEKA Gemini Card */}
-          <TouchableOpacity
-            style={styles.akrepCard}
-            onPress={() => (router as any).push("/lima")}
-            activeOpacity={0.85}
-          >
-            <View style={styles.akrepContent}>
-              <View style={styles.akrepIconBg}>
-                <Text style={styles.akrepEmoji}>🦂</Text>
-              </View>
-              <View style={{ flex: 1, marginLeft: 15 }}>
-                <Text style={styles.akrepTitle}>AKREP ZEKA</Text>
-                <Text style={styles.akrepSub}>Gemini 1.5 Flash ile sınırsız sohbet!</Text>
-              </View>
-              <IconSymbol name="chevron.right" size={20} color="#FF00FF" />
-            </View>
-          </TouchableOpacity>
-
-          {/* Play Button */}
-          <TouchableOpacity
-            style={styles.playBtn}
-            onPress={() => (router as any).push({ pathname: "/game", params: { cityId: state.currentCity, level: "1" } })}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.playBtnText}>OYUNA BAŞLA</Text>
-          </TouchableOpacity>
-
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Bölgeler</Text>
-          </View>
-
-          <FlatList
-            data={turkeyCities}
-            keyExtractor={item => item.id}
-            numColumns={2}
-            scrollEnabled={false}
-            columnWrapperStyle={{ gap: 12, paddingHorizontal: 16 }}
-            contentContainerStyle={{ gap: 12 }}
-            renderItem={({ item, index }) => (
-              <CityCard city={item} index={index} onPress={() => handleCityPress(item, index)} />
-            )}
-          />
-        </ScrollView>
+    <ImageBackground source={{ uri: BG_URL }} style={styles.background}>
+      <ScreenContainer containerClassName="bg-transparent" edges={["top"]}>
+        {view === "countries" && renderCountries()}
+        {view === "provinces" && renderProvinces()}
+        {view === "levels" && renderLevels()}
       </ScreenContainer>
     </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    backgroundColor: "rgba(15, 30, 82, 0.75)",
-    marginHorizontal: 16, marginTop: 12,
-    borderRadius: 20, padding: 16,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.15)",
-  },
-  avatarRow: { flexDirection: "row", alignItems: "center" },
-  avatar: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: "rgba(90, 46, 255, 0.2)",
-    borderWidth: 2, borderColor: "#5A2EFF",
-    alignItems: "center", justifyContent: "center",
-  },
-  avatarEmoji: { fontSize: 24 },
-  playerName: { color: "#FFFFFF", fontWeight: "900", fontSize: 16, marginBottom: 4 },
-  xpBar: { height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2, overflow: "hidden", marginBottom: 4 },
-  xpFill: { height: "100%", backgroundColor: "#5A2EFF" },
-  levelText: { color: "#8899BB", fontSize: 10, fontWeight: "700" },
-  leagueBadge: { borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 },
-  leagueText: { fontSize: 10, fontWeight: "900" },
-  
-  akrepCard: {
-    marginHorizontal: 16, marginTop: 16,
-    backgroundColor: "rgba(15, 30, 82, 0.8)",
-    borderRadius: 24, padding: 16,
-    borderWidth: 1.5, borderColor: "rgba(255, 0, 255, 0.3)",
-    shadowColor: "#FF00FF", shadowOpacity: 0.2, shadowRadius: 10, elevation: 5,
-  },
-  akrepContent: { flexDirection: "row", alignItems: "center" },
-  akrepIconBg: { width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(255, 0, 255, 0.1)", alignItems: "center", justifyContent: "center" },
-  akrepEmoji: { fontSize: 32 },
-  akrepTitle: { color: "#FFFFFF", fontWeight: "900", fontSize: 18, letterSpacing: 1 },
-  akrepSub: { color: "rgba(255, 255, 255, 0.6)", fontSize: 12, marginTop: 2 },
-
-  playBtn: {
-    marginHorizontal: 16, marginTop: 16,
-    backgroundColor: "#FF00FF", borderRadius: 20, paddingVertical: 18,
+  background: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 100 },
+  headerInfo: { marginBottom: 24, alignItems: "center" },
+  welcomeTitle: { color: "#FF00FF", fontSize: 28, fontWeight: "900", letterSpacing: 2 },
+  welcomeSubtitle: { color: "rgba(255,255,255,0.7)", fontSize: 14, marginTop: 4 },
+  headerRow: { flexDirection: "row", alignItems: "center", marginBottom: 24 },
+  backBtn: { width: 40, height: 40, justifyContent: "center" },
+  headerTitle: { color: "#FF00FF", fontSize: 22, fontWeight: "900", flex: 1, textAlign: "center", marginRight: 40 },
+  card: {
+    flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#FF00FF", shadowOpacity: 0.4, shadowRadius: 15, elevation: 8,
+    backgroundColor: "rgba(15, 30, 82, 0.8)",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 0, 255, 0.2)",
   },
-  playBtnText: { color: "#FFFFFF", fontSize: 18, fontWeight: "900", letterSpacing: 2 },
-
-  sectionHeader: { marginHorizontal: 16, marginTop: 24, marginBottom: 12 },
-  sectionTitle: { color: "#FFFFFF", fontSize: 22, fontWeight: "900", letterSpacing: 1 },
-
-  cityCard: {
-    width: CARD_W, backgroundColor: "rgba(15, 30, 82, 0.65)",
-    borderRadius: 24, padding: 16,
-    alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
-    overflow: "hidden",
+  cardEmoji: { fontSize: 32, marginRight: 16 },
+  cardTitle: { color: "white", fontSize: 18, fontWeight: "900" },
+  cardSubtitle: { color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4 },
+  levelsGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
+  levelButton: {
+    width: (width - 60) / 3,
+    aspectRatio: 1,
+    backgroundColor: "rgba(90, 46, 255, 0.2)",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#5A2EFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 15,
   },
-  cityCardLocked: { opacity: 0.6 },
-  cityEmoji: { fontSize: 44, marginBottom: 8 },
-  cityName: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
-  cityCountry: { color: "rgba(255,255,255,0.5)", fontSize: 11, marginTop: 2 },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    alignItems: "center", justifyContent: "center",
+  levelButtonLocked: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.1)",
   },
+  levelNumber: { color: "white", fontSize: 24, fontWeight: "900" },
+  levelLabel: { color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: "700", marginTop: 2 },
 });

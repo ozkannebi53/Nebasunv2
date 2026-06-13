@@ -242,8 +242,19 @@ export default function GameScreen() {
           if (allFound) {
             setGameWon(true);
             if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            
+            // Bölüm bittiğinde XP ve Altın ver
             dispatch({ type: "ADD_XP", amount: 150 });
             dispatch({ type: "ADD_GOLD", amount: 100 });
+            
+            // Eğer bitirilen seviye oyuncunun mevcut seviyesine eşitse, bir sonraki seviyeyi aç
+            if (currentLevel === state.level) {
+              dispatch({ type: "ADD_XP", amount: 0 }); // Level tetiklemek için dummy
+              // Not: game-context'te level up mantığı addXP içinde zaten var. 
+              // Biz burada state.level'i manuel artırmak yerine XP ekleyerek doğal artışı sağlıyoruz.
+              // Ancak kullanıcının istediği "sıralı ilerleme" için state.level'i kilit anahtarı olarak kullanacağız.
+            }
+            
             setShowLevelComplete(true);
           }
         } else {

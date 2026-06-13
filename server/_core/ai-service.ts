@@ -23,7 +23,7 @@ export async function invokeAI(
           Authorization: `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
+          model: "google/gemma-2b-it",
           messages: messages.map((m) => ({
             role: m.role,
             content: m.content,
